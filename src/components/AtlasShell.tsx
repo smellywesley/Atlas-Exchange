@@ -5,20 +5,30 @@ import { motion } from "motion/react";
 import {
   ArrowSquareOut,
   CalendarCheck,
+  Coffee,
   Compass,
+  ForkKnife,
   HouseLine,
+  MagnifyingGlass,
+  MapTrifold,
   MapPin,
+  NavigationArrow,
   Package,
+  Star,
+  Storefront,
+  Train,
   Wallet
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import { regions, londonPartners } from "@/lib/demo-data";
 import {
   exchangeCountries,
+  getAllUniversities,
+  getCampusIntelligence,
   getCountriesForRegion,
   getDefaultCountryForRegion
 } from "@/lib/exchange-map-data";
-import { buildLondonPlanResponse } from "@/lib/plan-engine";
+import { buildAtlasPlanResponse, buildLondonPlanResponse } from "@/lib/plan-engine";
 import type {
   DestinationRegion,
   ExchangePlan,
@@ -27,6 +37,11 @@ import type {
   ProviderStatus
 } from "@/lib/schema";
 import type { ExchangeCountry } from "@/lib/exchange-map-data";
+import type {
+  CampusPlace,
+  ExchangeUniversity,
+  SearchableExchangeUniversity
+} from "@/lib/exchange-map-data";
 import { IntakePanel } from "./IntakePanel";
 import { PlanDashboard } from "./PlanDashboard";
 
@@ -66,6 +81,11 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
   const [selectedCountry, setSelectedCountry] = useState<ExchangeCountry>(
     exchangeCountries.find((country) => country.id === "united-kingdom") ?? exchangeCountries[0]
   );
+  const [isCountryDetailOpen, setIsCountryDetailOpen] = useState(false);
+  const [highlightedUniversityName, setHighlightedUniversityName] = useState<string | undefined>(
+    "University College London"
+  );
+  const [universityQuery, setUniversityQuery] = useState("");
   const activeCountries = useMemo(
     () => getCountriesForRegion(activeRegion),
     [activeRegion]
@@ -77,14 +97,71 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       ) ?? londonPartners[0],
     [plan.profile.partnerUniversityId]
   );
+  const selectedExchangeUniversity = useMemo(
+    () =>
+      selectedCountry.universities.find((university) => university.name === highlightedUniversityName) ??
+      selectedCountry.universities[0],
+    [highlightedUniversityName, selectedCountry]
+  );
+  const campusIntelligence = useMemo(
+    () => getCampusIntelligence(selectedCountry, selectedExchangeUniversity),
+    [selectedCountry, selectedExchangeUniversity]
+  );
+  const universityResults = useMemo(() => {
+    const query = universityQuery.trim().toLowerCase();
 
-  function handleProfileSubmit(input: ExchangeProfileInput) {
-    const response = buildLondonPlanResponse({
-      ...input,
-      partnerUniversityId: activePartner.id
-    });
+    if (!query) {
+      return [] as SearchableExchangeUniversity[];
+    }
+
+    return getAllUniversities()
+      .filter((university) => {
+        const searchable = [
+          university.name,
+          university.city,
+          university.country.name,
+          university.partnership,
+          university.faculties?.join(" ") ?? ""
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return searchable.includes(query);
+      })
+      .slice(0, 8);
+  }, [universityQuery]);
+
+  function getCurrentProfileInput(): ExchangeProfileInput {
+    return {
+      partnerUniversityId: plan.profile.partnerUniversityId,
+      monthlyBudgetSgd: plan.profile.monthlyBudgetSgd,
+      stayLengthMonths: plan.profile.stayLengthMonths,
+      housingPreference: plan.profile.housingPreference,
+      travelStyle: plan.profile.travelStyle,
+      dietaryNeeds: plan.profile.dietaryNeeds,
+      plannedActivities: plan.profile.plannedActivities
+    };
+  }
+
+  function syncPlanToSelection(country: ExchangeCountry, university: ExchangeUniversity) {
+    const response = buildAtlasPlanResponse(country, university, getCurrentProfileInput());
     setPlan(response.plan);
     setProviderStatus(response.providerStatus);
+  }
+
+  function handleProfileSubmit(input: ExchangeProfileInput) {
+    const response = buildAtlasPlanResponse(selectedCountry, selectedExchangeUniversity, input);
+    setPlan(response.plan);
+    setProviderStatus(response.providerStatus);
+  }
+
+  function scrollToCampusIntelligence() {
+    window.requestAnimationFrame(() => {
+      document.getElementById("campus-intelligence")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
   }
 
   function handlePartnerSelect(partner: PartnerUniversity) {
@@ -97,18 +174,42 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       dietaryNeeds: plan.profile.dietaryNeeds,
       plannedActivities: plan.profile.plannedActivities
     });
+    const ukCountry = exchangeCountries.find((country) => country.id === "united-kingdom") ?? selectedCountry;
+    setActiveRegion("uk");
+    setSelectedCountry(ukCountry);
+    setIsCountryDetailOpen(true);
+    setHighlightedUniversityName(partner.name);
     setPlan(response.plan);
     setProviderStatus(response.providerStatus);
+    scrollToCampusIntelligence();
   }
 
   function handleRegionSelect(region: DestinationRegion) {
+    const defaultCountry = getDefaultCountryForRegion(region);
     setActiveRegion(region);
-    setSelectedCountry(getDefaultCountryForRegion(region));
+    setSelectedCountry(defaultCountry);
+    setIsCountryDetailOpen(false);
+    setHighlightedUniversityName(defaultCountry.universities[0]?.name);
+    syncPlanToSelection(defaultCountry, defaultCountry.universities[0]);
   }
 
-  function handleCountrySelect(country: ExchangeCountry) {
+  function handleCountrySelect(country: ExchangeCountry, universityName?: string, shouldScroll = false) {
+    const selectedUniversity =
+      country.universities.find((university) => university.name === universityName) ??
+      country.universities[0];
     setSelectedCountry(country);
     setActiveRegion(country.region);
+    setIsCountryDetailOpen(true);
+    setHighlightedUniversityName(selectedUniversity.name);
+    syncPlanToSelection(country, selectedUniversity);
+    if (shouldScroll) {
+      scrollToCampusIntelligence();
+    }
+  }
+
+  function handleUniversitySelect(result: SearchableExchangeUniversity) {
+    setUniversityQuery(result.name);
+    handleCountrySelect(result.country, result.name, true);
   }
 
   return (
@@ -136,7 +237,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
           </p>
           <div className="hero-actions">
             <a href="#planner" className="button primary">
-              Build London plan
+              Build exchange plan
             </a>
             <a href="#regions" className="button secondary">
               View regions
@@ -147,8 +248,8 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
           <div className="hero-card-image" />
           <div className="hero-card-body">
             <span>Ready path</span>
-            <strong>{activePartner.name}</strong>
-            <p>{activePartner.campusArea} housing, commute, budget, packing, and deadlines.</p>
+            <strong>{plan.partnerUniversity.name}</strong>
+            <p>{plan.partnerUniversity.city} housing, commute, budget, packing, and deadlines.</p>
           </div>
         </div>
       </motion.section>
@@ -166,6 +267,8 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             activeRegion={activeRegion}
             countries={activeCountries}
             selectedCountry={selectedCountry}
+            isDetailOpen={isCountryDetailOpen}
+            highlightedUniversityName={highlightedUniversityName}
             onCountrySelect={handleCountrySelect}
           />
           <div className="region-list">
@@ -203,6 +306,37 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
           </p>
         </div>
         <div className="university-grid">
+          <div className="university-search-panel">
+            <div className="university-search-field">
+              <MagnifyingGlass size={20} weight="bold" />
+              <input
+                value={universityQuery}
+                onChange={(event) => setUniversityQuery(event.target.value)}
+                placeholder="Search partner universities"
+                aria-label="Search partner universities"
+              />
+            </div>
+            <div className="university-search-results" aria-label="University search results">
+              {universityQuery.trim() ? (
+                universityResults.length > 0 ? (
+                  universityResults.map((result) => (
+                    <button
+                      key={`${result.countryId}-${result.name}-${result.index}`}
+                      type="button"
+                      onClick={() => handleUniversitySelect(result)}
+                    >
+                      <span>{result.country.name} / {result.city}</span>
+                      <strong>{result.name}</strong>
+                    </button>
+                  ))
+                ) : (
+                  <p>No partner university found for this search yet.</p>
+                )
+              ) : (
+                <p>Search by university, city, country, or faculty route.</p>
+              )}
+            </div>
+          </div>
           {selectedCountry.id === "united-kingdom"
             ? londonPartners.map((partner) => (
                 <button
@@ -211,9 +345,18 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                   className={`university-card ${partner.id === activePartner.id ? "active" : ""}`}
                   onClick={() => handlePartnerSelect(partner)}
                 >
-                  <div
-                    className={`university-image template-${selectedCountry.template}`}
-                    style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
+                  <UniversityVisual
+                    country={selectedCountry}
+                    title={partner.name}
+                    subtitle={partner.campusArea}
+                    mapEmbedUrl={
+                      getCampusIntelligence(selectedCountry, {
+                        name: partner.name,
+                        city: partner.city,
+                        partnership: "university-wide"
+                      }).mapEmbedUrl
+                    }
+                    index={londonPartners.findIndex((item) => item.id === partner.id)}
                   />
                   <div className="university-body">
                     <span>{partner.campusArea}</span>
@@ -222,17 +365,19 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                   </div>
                 </button>
               ))
-            : selectedCountry.universities.slice(0, 8).map((university) => (
-                <a
+            : selectedCountry.universities.slice(0, 8).map((university, index) => (
+                <button
                   key={`${university.name}-${university.city}-${university.partnership}`}
-                  className="university-card"
-                  href={university.sourceUrl ?? "#planner"}
-                  target={university.sourceUrl ? "_blank" : undefined}
-                  rel={university.sourceUrl ? "noreferrer" : undefined}
+                  type="button"
+                  className={`university-card ${university.name === highlightedUniversityName ? "active" : ""}`}
+                  onClick={() => handleCountrySelect(selectedCountry, university.name, true)}
                 >
-                  <div
-                    className={`university-image template-${selectedCountry.template}`}
-                    style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
+                  <UniversityVisual
+                    country={selectedCountry}
+                    title={university.name}
+                    subtitle={university.city}
+                    mapEmbedUrl={getCampusIntelligence(selectedCountry, university).mapEmbedUrl}
+                    index={index}
                   />
                   <div className="university-body">
                     <span>{university.city} / {university.partnership}</span>
@@ -243,9 +388,13 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                         : selectedCountry.logisticsAngle}
                     </p>
                   </div>
-                </a>
+                </button>
               ))}
         </div>
+        <CampusIntelligencePanel
+          campus={campusIntelligence}
+          accent={selectedCountry.accent}
+        />
       </motion.section>
 
       <motion.section id="planner" className="planner-section" {...sectionMotion}>
@@ -311,4 +460,154 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       </footer>
     </main>
   );
+}
+
+function UniversityVisual({
+  country,
+  title,
+  subtitle,
+  mapEmbedUrl,
+  index
+}: {
+  country: ExchangeCountry;
+  title: string;
+  subtitle: string;
+  mapEmbedUrl: string;
+  index: number;
+}) {
+  return (
+    <div
+      className={`university-image template-${country.template}`}
+      style={{ "--country-accent": country.accent } as CSSProperties}
+      aria-hidden="true"
+    >
+      <div className="university-map-preview">
+        <iframe
+          title={`${title} map preview`}
+          src={mapEmbedUrl}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          tabIndex={-1}
+        />
+      </div>
+      <div className="visual-caption">
+        <span>{subtitle}</span>
+        <strong>{index + 1 < 10 ? `0${index + 1}` : index + 1}</strong>
+      </div>
+      <span className="visual-source">Google Maps preview</span>
+      <p>{title}</p>
+    </div>
+  );
+}
+
+function CampusIntelligencePanel({
+  campus,
+  accent
+}: {
+  campus: ReturnType<typeof getCampusIntelligence>;
+  accent: string;
+}) {
+  return (
+    <motion.div
+      id="campus-intelligence"
+      className="campus-intelligence"
+      style={{ "--country-accent": accent } as CSSProperties}
+      initial={{ opacity: 0, y: 36 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.76, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <div className="campus-intel-copy">
+        <p className="section-kicker">Local life around campus</p>
+        <h3>{campus.university.name} on the ground.</h3>
+        <p>
+          The selected university opens into a Maps-aware student layer: campus location first, then groceries,
+          food, study spots, and transit checks around a practical 10-minute radius.
+        </p>
+      </div>
+
+      <div className="campus-intel-grid">
+        <article className="campus-map-panel">
+          <div className="campus-map-frame">
+            <iframe
+              title={`${campus.university.name} Google Maps preview`}
+              src={campus.mapEmbedUrl}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          </div>
+          <div className="campus-map-overlay">
+            <div>
+              <span>{campus.country.name} / {campus.university.city}</span>
+              <strong>{campus.university.name}</strong>
+              <small>Google Maps satellite preview</small>
+            </div>
+            <a href={campus.mapUrl} target="_blank" rel="noreferrer">
+              <MapTrifold size={18} weight="bold" />
+              Open Maps
+            </a>
+          </div>
+        </article>
+
+        <div className="campus-place-stack">
+          {campus.places.map((place, index) => (
+            <motion.a
+              key={place.id}
+              href={place.mapUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`campus-place-card place-${place.category}`}
+              initial={{ opacity: 0, x: 32 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.55, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="place-icon">
+                <PlaceIcon place={place} />
+              </div>
+              <div>
+                <span>{place.radiusMinutes} min radius / Google Maps</span>
+                <strong>{place.title}</strong>
+                <p>{place.description}</p>
+                <small>
+                  <Star size={14} weight="fill" />
+                  {place.reviewSignal}
+                </small>
+              </div>
+              <ArrowSquareOut size={18} weight="bold" />
+            </motion.a>
+          ))}
+        </div>
+      </div>
+
+      <div className="campus-action-row">
+        <a href={campus.directionsUrl} target="_blank" rel="noreferrer">
+          <NavigationArrow size={18} weight="bold" />
+          Directions
+        </a>
+        <a href={campus.radiusUrl} target="_blank" rel="noreferrer">
+          <MapPin size={18} weight="bold" />
+          Review radius
+        </a>
+        <span>{campus.campusQuery}</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function PlaceIcon({ place }: { place: CampusPlace }) {
+  if (place.category === "groceries") {
+    return <Storefront size={22} weight="duotone" />;
+  }
+
+  if (place.category === "food") {
+    return <ForkKnife size={22} weight="duotone" />;
+  }
+
+  if (place.category === "study") {
+    return <Coffee size={22} weight="duotone" />;
+  }
+
+  return <Train size={22} weight="duotone" />;
 }

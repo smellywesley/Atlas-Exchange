@@ -24,6 +24,151 @@ export type ExchangeCountry = {
   universities: ExchangeUniversity[];
 };
 
+export type SearchableExchangeUniversity = ExchangeUniversity & {
+  country: ExchangeCountry;
+  countryId: string;
+  index: number;
+};
+
+export type CampusPlaceCategory = "groceries" | "food" | "study" | "transit";
+
+export type CampusPlace = {
+  id: string;
+  category: CampusPlaceCategory;
+  title: string;
+  description: string;
+  radiusMinutes: number;
+  reviewSignal: string;
+  query: string;
+  mapUrl: string;
+};
+
+export type CampusIntelligence = {
+  university: ExchangeUniversity;
+  country: ExchangeCountry;
+  coordinates: { latitude: number; longitude: number };
+  campusQuery: string;
+  mapEmbedUrl: string;
+  mapUrl: string;
+  directionsUrl: string;
+  radiusUrl: string;
+  places: CampusPlace[];
+};
+
+const cityCoordinates: Record<string, { latitude: number; longitude: number }> = {
+  london: { latitude: 51.5072, longitude: -0.1276 },
+  edinburgh: { latitude: 55.9533, longitude: -3.1883 },
+  cambridge: { latitude: 52.2053, longitude: 0.1218 },
+  oxford: { latitude: 51.752, longitude: -1.2577 },
+  seoul: { latitude: 37.5665, longitude: 126.978 },
+  daejeon: { latitude: 36.3504, longitude: 127.3845 },
+  pohang: { latitude: 36.019, longitude: 129.3435 },
+  tokyo: { latitude: 35.6762, longitude: 139.6503 },
+  kyoto: { latitude: 35.0116, longitude: 135.7681 },
+  osaka: { latitude: 34.6937, longitude: 135.5023 },
+  beijing: { latitude: 39.9042, longitude: 116.4074 },
+  shanghai: { latitude: 31.2304, longitude: 121.4737 },
+  hangzhou: { latitude: 30.2741, longitude: 120.1551 },
+  nanjing: { latitude: 32.0603, longitude: 118.7969 },
+  "hong kong": { latitude: 22.3193, longitude: 114.1694 },
+  taipei: { latitude: 25.033, longitude: 121.5654 },
+  tainan: { latitude: 22.9999, longitude: 120.227 },
+  hsinchu: { latitude: 24.8138, longitude: 120.9675 },
+  sydney: { latitude: -33.8688, longitude: 151.2093 },
+  melbourne: { latitude: -37.8136, longitude: 144.9631 },
+  canberra: { latitude: -35.2809, longitude: 149.13 },
+  brisbane: { latitude: -27.4698, longitude: 153.0251 },
+  auckland: { latitude: -36.8509, longitude: 174.7645 },
+  christchurch: { latitude: -43.5321, longitude: 172.6362 },
+  dunedin: { latitude: -45.8788, longitude: 170.5028 },
+  wellington: { latitude: -41.2924, longitude: 174.7787 },
+  zurich: { latitude: 47.3769, longitude: 8.5417 },
+  lausanne: { latitude: 46.5197, longitude: 6.6323 },
+  geneva: { latitude: 46.2044, longitude: 6.1432 },
+  "st gallen": { latitude: 47.4245, longitude: 9.3767 },
+  delft: { latitude: 52.0116, longitude: 4.3571 },
+  eindhoven: { latitude: 51.4416, longitude: 5.4697 },
+  amsterdam: { latitude: 52.3676, longitude: 4.9041 },
+  utrecht: { latitude: 52.0907, longitude: 5.1214 },
+  rotterdam: { latitude: 51.9244, longitude: 4.4777 },
+  leiden: { latitude: 52.1601, longitude: 4.497 },
+  paris: { latitude: 48.8566, longitude: 2.3522 },
+  lyon: { latitude: 45.764, longitude: 4.8357 },
+  munich: { latitude: 48.1351, longitude: 11.582 },
+  aachen: { latitude: 50.7753, longitude: 6.0839 },
+  berlin: { latitude: 52.52, longitude: 13.405 },
+  mannheim: { latitude: 49.4875, longitude: 8.466 },
+  karlsruhe: { latitude: 49.0069, longitude: 8.4037 },
+  princeton: { latitude: 40.3573, longitude: -74.6672 },
+  philadelphia: { latitude: 39.9526, longitude: -75.1652 },
+  ithaca: { latitude: 42.443, longitude: -76.5019 },
+  boston: { latitude: 42.3601, longitude: -71.0589 },
+  "washington, dc": { latitude: 38.9072, longitude: -77.0369 },
+  "new york": { latitude: 40.7128, longitude: -74.006 },
+  california: { latitude: 37.7749, longitude: -122.4194 },
+  "los angeles": { latitude: 34.0522, longitude: -118.2437 },
+  seattle: { latitude: 47.6062, longitude: -122.3321 },
+  eugene: { latitude: 44.0521, longitude: -123.0868 },
+  stanford: { latitude: 37.4275, longitude: -122.1697 },
+  toronto: { latitude: 43.6532, longitude: -79.3832 },
+  vancouver: { latitude: 49.2827, longitude: -123.1207 },
+  montreal: { latitude: 45.5019, longitude: -73.5674 },
+  waterloo: { latitude: 43.4643, longitude: -80.5204 },
+  kingston: { latitude: 44.2312, longitude: -76.486 },
+  "london, ontario": { latitude: 42.9849, longitude: -81.2453 },
+  monterrey: { latitude: 25.6866, longitude: -100.3161 },
+  "mexico city": { latitude: 19.4326, longitude: -99.1332 },
+  "sao paulo": { latitude: -23.5505, longitude: -46.6333 }
+};
+
+const universityCoordinates: Record<string, { latitude: number; longitude: number }> = {
+  "university college london": { latitude: 51.5246, longitude: -0.134 },
+  "king's college london": { latitude: 51.5115, longitude: -0.116 },
+  "imperial college london": { latitude: 51.4988, longitude: -0.1749 },
+  "london school of economics": { latitude: 51.5145, longitude: -0.1165 },
+  "university of edinburgh": { latitude: 55.9445, longitude: -3.1892 },
+  "university of cambridge": { latitude: 52.2043, longitude: 0.1149 },
+  "university of oxford": { latitude: 51.7548, longitude: -1.2544 },
+  "seoul national university": { latitude: 37.4599, longitude: 126.9519 },
+  "yonsei university": { latitude: 37.5665, longitude: 126.9387 },
+  "korea university": { latitude: 37.5908, longitude: 127.0278 },
+  kaist: { latitude: 36.3721, longitude: 127.3601 },
+  postech: { latitude: 36.0142, longitude: 129.325 },
+  "university of tokyo": { latitude: 35.7127, longitude: 139.761 },
+  "waseda university": { latitude: 35.709, longitude: 139.7199 },
+  "keio university": { latitude: 35.6498, longitude: 139.742 },
+  "kyoto university": { latitude: 35.0262, longitude: 135.7809 },
+  "university of osaka": { latitude: 34.8203, longitude: 135.5235 },
+  "peking university": { latitude: 39.9928, longitude: 116.3109 },
+  "tsinghua university": { latitude: 40.0032, longitude: 116.3263 },
+  "fudan university": { latitude: 31.299, longitude: 121.501 },
+  "shanghai jiao tong university": { latitude: 31.2002, longitude: 121.4295 },
+  "university of hong kong": { latitude: 22.283, longitude: 114.1378 },
+  "national taiwan university": { latitude: 25.0173, longitude: 121.5398 },
+  "university of sydney": { latitude: -33.8886, longitude: 151.1873 },
+  "university of melbourne": { latitude: -37.7983, longitude: 144.961 },
+  "eth zurich": { latitude: 47.3763, longitude: 8.548 },
+  epfl: { latitude: 46.5191, longitude: 6.5668 },
+  "delft university of technology": { latitude: 51.9992, longitude: 4.3734 },
+  "university of amsterdam": { latitude: 52.3559, longitude: 4.9558 },
+  "sciences po": { latitude: 48.8546, longitude: 2.3309 },
+  "technical university of munich": { latitude: 48.1496, longitude: 11.5679 },
+  "princeton university": { latitude: 40.3431, longitude: -74.6551 },
+  "university of pennsylvania": { latitude: 39.9522, longitude: -75.1932 },
+  "cornell university": { latitude: 42.4534, longitude: -76.4735 },
+  "boston university": { latitude: 42.3505, longitude: -71.1054 },
+  "georgetown university": { latitude: 38.9076, longitude: -77.0723 },
+  "new york university": { latitude: 40.7295, longitude: -73.9965 },
+  "university of southern california": { latitude: 34.0224, longitude: -118.2851 },
+  "university of washington, seattle": { latitude: 47.6553, longitude: -122.3035 },
+  "stanford university": { latitude: 37.4275, longitude: -122.1697 },
+  "university of toronto": { latitude: 43.6629, longitude: -79.3957 },
+  "university of british columbia": { latitude: 49.2606, longitude: -123.246 },
+  "mcgill university": { latitude: 45.5048, longitude: -73.5772 },
+  "fgv eaesp": { latitude: -23.5536, longitude: -46.6508 },
+  "universidade de sao paulo": { latitude: -23.5596, longitude: -46.7314 }
+};
+
 export const exchangeCountries: ExchangeCountry[] = [
   {
     id: "united-kingdom",
@@ -366,3 +511,119 @@ export function getDefaultCountryForRegion(region: DestinationRegion) {
   return getCountriesForRegion(region)[0] ?? exchangeCountries[0];
 }
 
+export function getUniversityCoordinates(
+  university: ExchangeUniversity,
+  country: ExchangeCountry,
+  index = 0
+) {
+  const exact = universityCoordinates[university.name.toLowerCase()];
+
+  if (exact) {
+    return exact;
+  }
+
+  const base = cityCoordinates[university.city.toLowerCase()] ?? {
+    latitude: country.latitude,
+    longitude: country.longitude
+  };
+  const offset = ((index % 5) - 2) * 0.045;
+
+  return {
+    latitude: base.latitude + offset * 0.28,
+    longitude: base.longitude + offset
+  };
+}
+
+export function getAllUniversities(): SearchableExchangeUniversity[] {
+  return exchangeCountries.flatMap((country) =>
+    country.universities.map((university, index) => ({
+      ...university,
+      country,
+      countryId: country.id,
+      index
+    }))
+  );
+}
+
+export function getCampusIntelligence(
+  country: ExchangeCountry,
+  university: ExchangeUniversity
+): CampusIntelligence {
+  const index = country.universities.findIndex((item) => item.name === university.name);
+  const coordinates = getUniversityCoordinates(university, country, Math.max(index, 0));
+  const campusQuery = `${university.name} ${university.city} ${country.name}`;
+  const encodedCampus = encodeURIComponent(campusQuery);
+
+  return {
+    university,
+    country,
+    coordinates,
+    campusQuery,
+    mapEmbedUrl: `https://maps.google.com/maps?q=${encodedCampus}&z=17&t=k&output=embed`,
+    mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodedCampus}`,
+    directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${encodedCampus}`,
+    radiusUrl: `https://www.google.com/maps/search/${encodeURIComponent(`highly rated food groceries cafe near ${campusQuery}`)}`,
+    places: buildCampusPlaces(country, university)
+  };
+}
+
+function buildCampusPlaces(
+  country: ExchangeCountry,
+  university: ExchangeUniversity
+): CampusPlace[] {
+  const campusQuery = `${university.name} ${university.city} ${country.name}`;
+  const seeds: Array<{
+    category: CampusPlaceCategory;
+    title: string;
+    description: string;
+    radiusMinutes: number;
+    reviewSignal: string;
+    query: string;
+  }> = [
+    {
+      category: "groceries",
+      title: "Groceries within a short walk",
+      description: "Open live Maps results for supermarkets, convenience stores, and student-budget grocery runs.",
+      radiusMinutes: 10,
+      reviewSignal: "Use Maps ratings and opening hours before pinning",
+      query: `best groceries near ${campusQuery}`
+    },
+    {
+      category: "food",
+      title: "Highly reviewed food nearby",
+      description: "Check the closest food clusters with ratings, photos, opening hours, and current crowd signals.",
+      radiusMinutes: 10,
+      reviewSignal: "Live review check in Google Maps",
+      query: `highly rated restaurants near ${campusQuery}`
+    },
+    {
+      category: "study",
+      title: "Cafe and study fallback",
+      description: "Find cafes and quiet study spots for the first week before campus routines settle.",
+      radiusMinutes: 10,
+      reviewSignal: "Prioritize review volume and recent photos",
+      query: `cafes study spots near ${campusQuery}`
+    },
+    {
+      category: "transit",
+      title: "Transit and arrival anchor",
+      description: "Inspect nearby stations and arrival paths so housing choices stay commute-aware.",
+      radiusMinutes: 12,
+      reviewSignal: "Validate route timing in Maps",
+      query: `public transport near ${campusQuery}`
+    }
+  ];
+
+  return seeds.map((place) => ({
+    ...place,
+    id: `${slugify(campusQuery)}-${place.category}`,
+    mapUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.query)}`
+  }));
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}

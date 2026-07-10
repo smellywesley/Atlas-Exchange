@@ -30,7 +30,7 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
           <span className="panel-label">Generated plan</span>
           <h3>{plan.partnerUniversity.name}</h3>
           <p>
-            {plan.profile.stayLengthMonths} months in London with SGD {plan.profile.monthlyBudgetSgd.toLocaleString()} monthly budget.
+            {plan.profile.stayLengthMonths} months in {plan.profile.destinationCity} with SGD {plan.profile.monthlyBudgetSgd.toLocaleString()} monthly budget.
           </p>
         </div>
         <span className="mode-pill">{providerStatus.mode}</span>

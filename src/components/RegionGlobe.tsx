@@ -3,18 +3,22 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import * as THREE from "three";
 import type { DestinationRegion } from "@/lib/schema";
-import type { ExchangeCountry } from "@/lib/exchange-map-data";
+import { getUniversityCoordinates, type ExchangeCountry } from "@/lib/exchange-map-data";
 
 type RegionGlobeProps = {
   activeRegion: DestinationRegion;
   countries: ExchangeCountry[];
   selectedCountry: ExchangeCountry;
-  onCountrySelect: (country: ExchangeCountry) => void;
+  isDetailOpen: boolean;
+  highlightedUniversityName?: string;
+  onCountrySelect: (country: ExchangeCountry, universityName?: string) => void;
 };
 
 type MarkerRecord = {
   country: ExchangeCountry;
   mesh: THREE.Mesh;
+  kind: "country" | "university";
+  universityName?: string;
 };
 
 const countryTemplateLabels: Record<ExchangeCountry["template"], string> = {
@@ -30,10 +34,14 @@ export function RegionGlobe({
   activeRegion,
   countries,
   selectedCountry,
+  isDetailOpen,
+  highlightedUniversityName,
   onCountrySelect
 }: RegionGlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef(selectedCountry);
+  const isDetailOpenRef = useRef(isDetailOpen);
+  const highlightedUniversityNameRef = useRef(highlightedUniversityName);
   const countriesRef = useRef(countries);
   const onCountrySelectRef = useRef(onCountrySelect);
 
@@ -45,6 +53,14 @@ export function RegionGlobe({
   useEffect(() => {
     selectedRef.current = selectedCountry;
   }, [selectedCountry]);
+
+  useEffect(() => {
+    isDetailOpenRef.current = isDetailOpen;
+  }, [isDetailOpen]);
+
+  useEffect(() => {
+    highlightedUniversityNameRef.current = highlightedUniversityName;
+  }, [highlightedUniversityName]);
 
   useEffect(() => {
     countriesRef.current = countries;
@@ -63,7 +79,7 @@ export function RegionGlobe({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    camera.position.set(0, 0, 4.25);
+    camera.position.set(0, 0, 4.95);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -131,17 +147,19 @@ export function RegionGlobe({
       markerRecords.splice(0);
       markerGroup.clear();
       countriesRef.current.forEach((country) => {
+        const isSelectedCountry = country.id === selectedRef.current.id;
         const marker = new THREE.Mesh(
           new THREE.SphereGeometry(0.035, 18, 18),
           new THREE.MeshStandardMaterial({
             color: new THREE.Color(country.accent),
             emissive: new THREE.Color(country.accent),
-            emissiveIntensity: country.id === selectedRef.current.id ? 1.8 : 0.8,
+            emissiveIntensity: isSelectedCountry ? 1.8 : 0.8,
             roughness: 0.2
           })
         );
         marker.position.copy(latLonToVector3(country.latitude, country.longitude, 1.64));
         marker.userData.countryId = country.id;
+        marker.userData.markerKind = "country";
         markerGroup.add(marker);
 
         const pulse = new THREE.Mesh(
@@ -156,9 +174,46 @@ export function RegionGlobe({
         pulse.position.copy(latLonToVector3(country.latitude, country.longitude, 1.645));
         pulse.lookAt(new THREE.Vector3(0, 0, 0));
         pulse.userData.countryId = country.id;
+        pulse.userData.markerKind = "country";
         markerGroup.add(pulse);
 
-        markerRecords.push({ country, mesh: marker });
+        markerRecords.push({ country, mesh: marker, kind: "country" });
+
+        country.universities.forEach((university, index) => {
+          const coordinates = getUniversityCoordinates(university, country, index);
+          const universityMarker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.018, 14, 14),
+            new THREE.MeshStandardMaterial({
+              color: 0xf4f7f5,
+              emissive: new THREE.Color(country.accent),
+              emissiveIntensity: 0.65,
+              roughness: 0.35
+            })
+          );
+          universityMarker.position.copy(
+            latLonToVector3(coordinates.latitude, coordinates.longitude, 1.675)
+          );
+          universityMarker.userData.countryId = country.id;
+          universityMarker.userData.universityName = university.name;
+          universityMarker.userData.markerKind = "university";
+          markerGroup.add(universityMarker);
+
+          const label = createTextSprite(university.name, country.accent);
+          label.position.copy(
+            latLonToVector3(coordinates.latitude, coordinates.longitude, 1.78)
+          );
+          label.userData.countryId = country.id;
+          label.userData.universityName = university.name;
+          label.userData.markerKind = "university";
+          markerGroup.add(label);
+
+          markerRecords.push({
+            country,
+            mesh: universityMarker,
+            kind: "university",
+            universityName: university.name
+          });
+        });
       });
     }
 
@@ -178,7 +233,7 @@ export function RegionGlobe({
       lastY: 0
     };
 
-    let targetZoom = 4.25;
+    let targetZoom = 4.95;
     let frameId = 0;
     let targetRotationX = 0;
     let targetRotationY = 0;
@@ -190,17 +245,24 @@ export function RegionGlobe({
         0.9
       );
       targetRotationY = -THREE.MathUtils.degToRad(country.longitude);
-      targetZoom = 2.8;
+      targetZoom = 3.75;
     }
 
     focusCountry(selectedRef.current);
 
     function updateMarkerMaterials() {
-      markerRecords.forEach(({ country, mesh }) => {
+      markerRecords.forEach(({ country, mesh, kind, universityName }) => {
         const material = mesh.material as THREE.MeshStandardMaterial;
         const isSelected = country.id === selectedRef.current.id;
-        material.emissiveIntensity = isSelected ? 2 : 0.8;
-        mesh.scale.setScalar(isSelected ? 1.45 : 1);
+        const isHighlightedUniversity =
+          kind === "university" &&
+          isSelected &&
+          universityName === highlightedUniversityNameRef.current;
+        material.emissiveIntensity =
+          kind === "country" ? (isSelected ? 2 : 0.8) : (isHighlightedUniversity ? 1.9 : 0.65);
+        mesh.scale.setScalar(
+          kind === "country" ? (isSelected ? 1.45 : 1) : (isHighlightedUniversity ? 1.8 : 1)
+        );
       });
     }
 
@@ -265,19 +327,23 @@ export function RegionGlobe({
       setPointerFromEvent(event);
       raycaster.setFromCamera(pointer, camera);
       const intersections = raycaster.intersectObjects(markerGroup.children, false);
-      const countryId = intersections[0]?.object.userData.countryId as string | undefined;
+      const picked = intersections[0]?.object;
+      const countryId = picked?.userData.countryId as string | undefined;
+      const universityName = picked?.userData.universityName as string | undefined;
       const country = countriesRef.current.find((item) => item.id === countryId);
       if (country) {
         selectedRef.current = country;
+        isDetailOpenRef.current = true;
+        highlightedUniversityNameRef.current = universityName;
         focusCountry(country);
         updateMarkerMaterials();
-        onCountrySelectRef.current(country);
+        onCountrySelectRef.current(country, universityName);
       }
     }
 
     function onWheel(event: WheelEvent) {
       event.preventDefault();
-      targetZoom = THREE.MathUtils.clamp(targetZoom + event.deltaY * 0.003, 2.35, 5.2);
+      targetZoom = THREE.MathUtils.clamp(targetZoom + event.deltaY * 0.003, 3.35, 5.8);
     }
 
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
@@ -289,14 +355,21 @@ export function RegionGlobe({
       frameId = window.requestAnimationFrame(animate);
       const focusedCountry = selectedRef.current;
       if (!dragState.active) {
-        targetRotationX = THREE.MathUtils.clamp(
-          THREE.MathUtils.degToRad(focusedCountry.latitude * 0.55),
-          -0.9,
-          0.9
-        );
-        targetRotationY = -THREE.MathUtils.degToRad(focusedCountry.longitude);
-        globeGroup.rotation.x = THREE.MathUtils.lerp(globeGroup.rotation.x, targetRotationX, 0.045);
-        globeGroup.rotation.y = lerpAngle(globeGroup.rotation.y, targetRotationY, 0.045);
+        if (isDetailOpenRef.current) {
+          targetRotationX = THREE.MathUtils.clamp(
+            THREE.MathUtils.degToRad(focusedCountry.latitude * 0.55),
+            -0.9,
+            0.9
+          );
+          targetRotationY = -THREE.MathUtils.degToRad(focusedCountry.longitude);
+          globeGroup.rotation.x = THREE.MathUtils.lerp(globeGroup.rotation.x, targetRotationX, 0.045);
+          globeGroup.rotation.y = lerpAngle(globeGroup.rotation.y, targetRotationY, 0.045);
+          targetZoom = 3.75;
+        } else {
+          globeGroup.rotation.x = THREE.MathUtils.lerp(globeGroup.rotation.x, 0.08, 0.018);
+          globeGroup.rotation.y += 0.0026;
+          targetZoom = 4.95;
+        }
         clouds.rotation.y += 0.0015;
       }
       stars.rotation.y += 0.0005;
@@ -322,7 +395,7 @@ export function RegionGlobe({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, []);
+  }, [activeRegion]);
 
   useEffect(() => {
     selectedRef.current = selectedCountry;
@@ -332,21 +405,14 @@ export function RegionGlobe({
     <div
       className={`globe-card globe-template-${selectedCountry.template}`}
       style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
-      aria-label={`Interactive exchange globe focused on ${selectedCountry.name}`}
+      aria-label={`Interactive exchange globe ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
     >
       <div ref={mountRef} className="three-globe-mount" />
       <div className="globe-hud">
         <div>
-          <span>Drag / zoom / click markers</span>
+          <span>Drag / zoom / click university labels</span>
           <strong>{selectedCountry.name}</strong>
         </div>
-        <button
-          type="button"
-          onClick={() => onCountrySelect(selectedCountry)}
-          aria-label={`Focus ${selectedCountry.name} on the globe`}
-        >
-          Focus
-        </button>
       </div>
       <div className="country-orbit-list" aria-label={`${activeRegion} exchange country options`}>
         {countries.map((country) => (
@@ -361,28 +427,35 @@ export function RegionGlobe({
           </button>
         ))}
       </div>
-      <aside className="globe-country-panel">
-        <span>{countryTemplateLabels[selectedCountry.template]}</span>
-        <h3>{selectedCountry.focusLabel}</h3>
-        <p>{selectedCountry.summary}</p>
-        <div className="country-logistics-note">{selectedCountry.logisticsAngle}</div>
-        <div className="country-university-list">
-          {visibleUniversities.map((university) => (
-            <a
-              key={`${university.name}-${university.city}-${university.partnership}`}
-              href={university.sourceUrl ?? "#universities"}
-              target={university.sourceUrl ? "_blank" : undefined}
-              rel={university.sourceUrl ? "noreferrer" : undefined}
-            >
-              <strong>{university.name}</strong>
-              <span>
-                {university.city} / {university.partnership}
-                {university.faculties ? ` / ${university.faculties.join(", ")}` : ""}
-              </span>
-            </a>
-          ))}
-        </div>
-      </aside>
+      {isDetailOpen ? (
+        <aside className="globe-country-panel">
+          <span>{countryTemplateLabels[selectedCountry.template]}</span>
+          <h3>{selectedCountry.focusLabel}</h3>
+          <p>{selectedCountry.summary}</p>
+          <div className="country-logistics-note">{selectedCountry.logisticsAngle}</div>
+          <div className="country-university-list">
+            {visibleUniversities.map((university) => (
+              <button
+                key={`${university.name}-${university.city}-${university.partnership}`}
+                type="button"
+                className={university.name === highlightedUniversityName ? "active" : ""}
+                onClick={() => onCountrySelect(selectedCountry, university.name)}
+              >
+                <strong>{university.name}</strong>
+                <span>
+                  {university.city} / {university.partnership}
+                  {university.faculties ? ` / ${university.faculties.join(", ")}` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      ) : (
+        <aside className="globe-idle-panel">
+          <span>All partner cities are pinned</span>
+          <strong>Click a country marker or search below to open the campus HUD.</strong>
+        </aside>
+      )}
     </div>
   );
 }
@@ -403,6 +476,61 @@ function lerpAngle(current: number, target: number, alpha: number) {
     delta += Math.PI * 2;
   }
   return current + delta * alpha;
+}
+
+function createTextSprite(label: string, accent: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+
+  if (ctx) {
+    const shortLabel = label.length > 28 ? `${label.slice(0, 25)}...` : label;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "rgba(8, 17, 17, 0.72)";
+    roundRect(ctx, 12, 30, 488, 70, 18);
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = "#f4f7f5";
+    ctx.font = "700 30px Segoe UI, Arial, sans-serif";
+    ctx.fillText(shortLabel, 34, 75);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      opacity: 0.9
+    })
+  );
+  sprite.scale.set(0.56, 0.14, 1);
+  return sprite;
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
 }
 
 function createEarthTexture() {
