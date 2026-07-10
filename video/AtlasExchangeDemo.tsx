@@ -39,7 +39,7 @@ export function AtlasExchangeDemo() {
         <Scene title="Every recommendation carries a source." kicker="Trust layer" />
       </Sequence>
       <Sequence from={70 * fps} durationInFrames={5 * fps}>
-        <Scene title="London first. Global exchange paths next." kicker="Demo close" />
+        <Scene title="London first. Seoul, Europe, US, Oceania next." kicker="Demo close" />
       </Sequence>
     </AbsoluteFill>
   );
@@ -83,8 +83,8 @@ function DestinationScene() {
   return (
     <AbsoluteFill style={{ padding: 110, justifyContent: "center" }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
-        <VideoCard title="Choose London" subtitle="UK path selected" />
-        <VideoCard title="University College London" subtitle="Bloomsbury housing and commute plan" />
+        <VideoCard title="Spin the world" subtitle="3D exchange atlas" />
+        <VideoCard title="Zoom into UK" subtitle="country markers to partner universities" />
       </div>
     </AbsoluteFill>
   );

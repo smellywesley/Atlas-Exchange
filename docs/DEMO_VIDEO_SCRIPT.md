@@ -12,9 +12,9 @@ Duration target: 75 seconds.
    - Message: "Housing, budget, packing, deadlines. Usually scattered."
    - Visual: four cards appear one at a time, not all at once.
 
-3. **Destination selection, 18-30s**
-   - Message: "Choose London. Pick UCL."
-   - Visual: region globe, partner university cards, UCL selected.
+3. **3D exchange atlas, 18-30s**
+   - Message: "Spin the world. Zoom into partner countries."
+   - Visual: Earth globe rotates from Asia to Europe to UK, country markers pulse, UK selected.
 
 4. **Student intake, 30-42s**
    - Message: "Budget, stay length, housing preference."
@@ -30,7 +30,7 @@ Duration target: 75 seconds.
 
 7. **Close, 70-75s**
    - Message: "London first. Global exchange paths next."
-   - Visual: regions fade in around Atlas Exchange.
+   - Visual: Seoul, Switzerland, Netherlands, UK, USA East/West, Canada, Australia, and Brazil fade in around Atlas Exchange.
 
 ## Video Rules
 

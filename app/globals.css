@@ -19,6 +19,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 108px;
 }
 
 body {
@@ -52,19 +53,21 @@ button {
 .top-nav {
   position: fixed;
   z-index: 20;
-  top: 18px;
+  top: 16px;
   left: 50%;
   display: flex;
   width: min(1180px, calc(100% - 32px));
-  height: 68px;
+  min-height: 76px;
   transform: translateX(-50%);
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(8, 17, 17, 0.68);
-  padding: 0 14px 0 22px;
-  backdrop-filter: blur(24px) saturate(140%);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(13, 29, 30, 0.88), rgba(8, 17, 17, 0.72)),
+    rgba(8, 17, 17, 0.8);
+  padding: 12px 18px;
+  backdrop-filter: blur(26px) saturate(140%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 22px 70px rgba(0, 0, 0, 0.28);
 }
 
@@ -78,14 +81,15 @@ button {
 .brand-lockup {
   font-weight: 700;
   letter-spacing: -0.02em;
+  min-width: max-content;
 }
 
 .brand-mark {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: 14px;
   background: var(--accent);
   color: var(--ink);
   font-family: var(--font-geist-mono), monospace;
@@ -94,14 +98,16 @@ button {
 }
 
 .nav-links {
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .nav-links a {
-  border-radius: 999px;
-  padding: 10px 14px;
+  border-radius: 12px;
+  padding: 10px 16px;
   color: rgba(244, 247, 245, 0.72);
   font-size: 0.9rem;
+  white-space: nowrap;
   transition: background 180ms ease, color 180ms ease;
 }
 
@@ -298,13 +304,15 @@ button {
 
 .globe-card {
   position: relative;
-  min-height: 540px;
+  min-height: 640px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 20px;
   background:
-    radial-gradient(circle at 50% 0%, rgba(55, 183, 200, 0.24), transparent 28rem),
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--country-accent, var(--accent)) 34%, transparent), transparent 28rem),
+    radial-gradient(circle at 70% 28%, rgba(244, 247, 245, 0.09), transparent 18rem),
     #0b1516;
+  box-shadow: inset 0 1px 0 rgba(244, 247, 245, 0.08), 0 30px 100px rgba(0, 0, 0, 0.32);
 }
 
 .globe-fallback {
@@ -312,131 +320,6 @@ button {
     radial-gradient(circle at 50% 40%, rgba(55, 183, 200, 0.28), transparent 12rem),
     repeating-linear-gradient(90deg, rgba(244, 247, 245, 0.04) 0, rgba(244, 247, 245, 0.04) 1px, transparent 1px, transparent 42px),
     #0b1516;
-}
-
-.css-globe-scene {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  perspective: 900px;
-}
-
-.css-globe-scene::before {
-  position: absolute;
-  width: 82%;
-  height: 82%;
-  content: "";
-  border-radius: 999px;
-  background:
-    radial-gradient(circle, rgba(55, 183, 200, 0.18), transparent 54%),
-    conic-gradient(from 110deg, rgba(221, 68, 54, 0.18), rgba(55, 183, 200, 0.22), rgba(236, 183, 92, 0.15), rgba(221, 68, 54, 0.18));
-  filter: blur(18px);
-  opacity: 0.75;
-}
-
-.css-globe {
-  position: relative;
-  width: min(58vw, 360px);
-  aspect-ratio: 1;
-  transform-style: preserve-3d;
-  animation: globeTilt 14s linear infinite;
-}
-
-.globe-core {
-  position: absolute;
-  inset: 18%;
-  border: 1px solid rgba(244, 247, 245, 0.3);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 25%, rgba(244, 247, 245, 0.22), transparent 18%),
-    radial-gradient(circle at 62% 58%, rgba(55, 183, 200, 0.34), transparent 30%),
-    linear-gradient(145deg, rgba(18, 48, 51, 0.92), rgba(8, 17, 17, 0.78));
-  box-shadow:
-    inset -28px -18px 48px rgba(0, 0, 0, 0.38),
-    0 36px 90px rgba(0, 0, 0, 0.36);
-}
-
-.globe-ring {
-  position: absolute;
-  inset: 16%;
-  border: 1px solid rgba(244, 247, 245, 0.26);
-  border-radius: 50%;
-  transform-style: preserve-3d;
-}
-
-.ring-a {
-  transform: rotateX(72deg) rotateZ(12deg);
-}
-
-.ring-b {
-  transform: rotateY(64deg) rotateZ(-18deg);
-}
-
-.ring-c {
-  transform: rotateX(24deg) rotateY(58deg);
-  border-color: rgba(55, 183, 200, 0.42);
-}
-
-.orbit-system {
-  position: absolute;
-  inset: 18%;
-  animation: orbitSweep 22s linear infinite;
-}
-
-.orbit-point {
-  position: absolute;
-  display: inline-grid;
-  min-width: 76px;
-  place-items: center;
-  border: 1px solid rgba(244, 247, 245, 0.2);
-  border-radius: 999px;
-  background: rgba(8, 17, 17, 0.78);
-  color: rgba(244, 247, 245, 0.76);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.68rem;
-  padding: 7px 10px;
-}
-
-.orbit-point-1 {
-  top: 5%;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.orbit-point-2 {
-  top: 42%;
-  right: -2%;
-}
-
-.orbit-point-3 {
-  bottom: 6%;
-  left: 44%;
-}
-
-.orbit-point-4 {
-  top: 45%;
-  left: -3%;
-}
-
-@keyframes globeTilt {
-  from {
-    transform: rotateX(62deg) rotateZ(0deg);
-  }
-
-  to {
-    transform: rotateX(62deg) rotateZ(360deg);
-  }
-}
-
-@keyframes orbitSweep {
-  from {
-    transform: rotateZ(0deg);
-  }
-
-  to {
-    transform: rotateZ(-360deg);
-  }
 }
 
 .globe-overlay {
@@ -458,6 +341,184 @@ button {
 .globe-overlay strong {
   font-family: var(--font-geist-mono), monospace;
   letter-spacing: 0.1em;
+}
+
+.three-globe-mount {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.three-globe-mount:active {
+  cursor: grabbing;
+}
+
+.three-globe-mount canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.globe-card::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(rgba(244, 247, 245, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 247, 245, 0.035) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(circle at 50% 48%, black 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.globe-hud {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  left: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.globe-hud div {
+  display: grid;
+  gap: 6px;
+}
+
+.globe-hud span,
+.globe-country-panel > span {
+  color: color-mix(in srgb, var(--country-accent, var(--accent)) 82%, white);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.globe-hud strong {
+  font-size: clamp(1.35rem, 3vw, 2.5rem);
+  letter-spacing: -0.05em;
+}
+
+.globe-hud button {
+  min-height: 40px;
+  border: 1px solid rgba(244, 247, 245, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 17, 17, 0.64);
+  color: var(--text);
+  padding: 0 14px;
+  pointer-events: auto;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.globe-hud button:hover {
+  border-color: color-mix(in srgb, var(--country-accent, var(--accent)) 70%, white);
+  background: rgba(244, 247, 245, 0.1);
+}
+
+.country-orbit-list {
+  position: absolute;
+  top: 104px;
+  left: 20px;
+  display: flex;
+  width: min(460px, calc(100% - 40px));
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  z-index: 2;
+}
+
+.country-orbit-list button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(244, 247, 245, 0.16);
+  border-radius: 999px;
+  background: rgba(8, 17, 17, 0.64);
+  color: rgba(244, 247, 245, 0.76);
+  padding: 8px 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(14px);
+  transition: transform 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.country-orbit-list button:hover,
+.country-orbit-list button.active {
+  border-color: var(--country-accent, var(--accent));
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.country-orbit-list span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--country-accent, var(--accent));
+  box-shadow: 0 0 18px var(--country-accent, var(--accent));
+}
+
+.globe-country-panel {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: grid;
+  width: min(430px, calc(100% - 40px));
+  gap: 12px;
+  border: 1px solid rgba(244, 247, 245, 0.16);
+  border-radius: 18px;
+  background: rgba(8, 17, 17, 0.76);
+  padding: 18px;
+  backdrop-filter: blur(18px);
+  z-index: 3;
+}
+
+.globe-country-panel h3 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  letter-spacing: -0.05em;
+}
+
+.globe-country-panel p,
+.country-logistics-note {
+  margin: 0;
+  color: rgba(244, 247, 245, 0.72);
+  line-height: 1.48;
+}
+
+.country-logistics-note {
+  border-left: 2px solid var(--country-accent, var(--accent));
+  padding-left: 12px;
+}
+
+.country-university-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.country-university-list a {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(244, 247, 245, 0.12);
+  border-radius: 12px;
+  background: rgba(244, 247, 245, 0.06);
+  padding: 10px;
+}
+
+.country-university-list strong {
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+}
+
+.country-university-list span {
+  color: rgba(244, 247, 245, 0.58);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .region-list {
@@ -513,6 +574,63 @@ button {
   background-position: center;
   background-size: cover;
   padding: 26px;
+}
+
+.country-template-metropolis,
+.template-metropolis {
+  background-image:
+    linear-gradient(90deg, rgba(8, 17, 17, 0.94), rgba(8, 17, 17, 0.36)),
+    radial-gradient(circle at 78% 28%, color-mix(in srgb, var(--country-accent, var(--accent)) 52%, transparent), transparent 18rem),
+    linear-gradient(135deg, rgba(244, 247, 245, 0.08) 0 1px, transparent 1px 22px),
+    linear-gradient(160deg, #0b1819, #142729);
+}
+
+.country-template-mountain,
+.template-mountain {
+  background-image:
+    linear-gradient(90deg, rgba(8, 17, 17, 0.9), rgba(8, 17, 17, 0.28)),
+    linear-gradient(135deg, transparent 0 46%, rgba(244, 247, 245, 0.7) 46% 47%, transparent 47%),
+    linear-gradient(32deg, transparent 0 56%, rgba(244, 247, 245, 0.26) 56% 57%, transparent 57%),
+    radial-gradient(circle at 78% 22%, color-mix(in srgb, var(--country-accent, var(--accent)) 38%, transparent), transparent 18rem),
+    linear-gradient(180deg, #172426, #0b1213);
+}
+
+.country-template-coastal,
+.template-coastal {
+  background-image:
+    linear-gradient(90deg, rgba(8, 17, 17, 0.92), rgba(8, 17, 17, 0.26)),
+    radial-gradient(ellipse at 80% 20%, color-mix(in srgb, var(--country-accent, var(--accent)) 48%, transparent), transparent 18rem),
+    repeating-linear-gradient(172deg, rgba(244, 247, 245, 0.16) 0 1px, transparent 1px 18px),
+    linear-gradient(145deg, #092833, #0d1517 56%, #17231f);
+}
+
+.country-template-campus,
+.template-campus {
+  background-image:
+    linear-gradient(90deg, rgba(8, 17, 17, 0.92), rgba(8, 17, 17, 0.34)),
+    radial-gradient(circle at 78% 28%, color-mix(in srgb, var(--country-accent, var(--accent)) 38%, transparent), transparent 18rem),
+    linear-gradient(0deg, rgba(244, 247, 245, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 247, 245, 0.12) 1px, transparent 1px),
+    linear-gradient(140deg, #111b1d, #192225);
+  background-size: auto, auto, 44px 44px, 44px 44px, auto;
+}
+
+.country-template-heritage,
+.template-heritage {
+  background-image:
+    linear-gradient(90deg, rgba(8, 17, 17, 0.94), rgba(8, 17, 17, 0.3)),
+    radial-gradient(circle at 78% 30%, color-mix(in srgb, var(--country-accent, var(--accent)) 42%, transparent), transparent 18rem),
+    repeating-linear-gradient(45deg, rgba(244, 247, 245, 0.1) 0 1px, transparent 1px 26px),
+    linear-gradient(135deg, #201c18, #0d1718);
+}
+
+.country-template-pacific,
+.template-pacific {
+  background-image:
+    linear-gradient(90deg, rgba(8, 17, 17, 0.92), rgba(8, 17, 17, 0.26)),
+    radial-gradient(circle at 78% 26%, color-mix(in srgb, var(--country-accent, var(--accent)) 46%, transparent), transparent 18rem),
+    linear-gradient(155deg, transparent 0 54%, rgba(244, 247, 245, 0.18) 54% 55%, transparent 55%),
+    linear-gradient(180deg, #10222d, #0b1516 62%, #1b241c);
 }
 
 .region-feature div {
@@ -1017,19 +1135,26 @@ button {
 @media (max-width: 720px) {
   .top-nav {
     height: auto;
-    min-height: 64px;
-    align-items: flex-start;
-    border-radius: 24px;
+    min-height: 72px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-radius: 18px;
+    gap: 10px;
     padding: 12px;
   }
 
   .brand-lockup span:last-child {
-    display: none;
+    display: inline;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .nav-links {
+    width: 100%;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   .nav-links a {
@@ -1061,7 +1186,29 @@ button {
   }
 
   .globe-card {
-    min-height: 360px;
+    min-height: 620px;
+  }
+
+  .globe-hud {
+    right: 14px;
+    left: 14px;
+  }
+
+  .country-orbit-list {
+    top: 118px;
+    left: 14px;
+    width: calc(100% - 28px);
+  }
+
+  .globe-country-panel {
+    right: 14px;
+    bottom: 14px;
+    width: calc(100% - 28px);
+    padding: 14px;
+  }
+
+  .country-university-list {
+    grid-template-columns: 1fr;
   }
 
   .university-grid,

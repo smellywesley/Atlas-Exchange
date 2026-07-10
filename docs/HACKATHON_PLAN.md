@@ -20,6 +20,8 @@ For the hackathon, the strongest version is not a generic chatbot. It is a cinem
 
 - London destination path
 - Premium landing and destination discovery UI
+- Direct Three.js exchange globe with drag rotation, wheel zoom, and clickable country markers
+- Country-specific discovery templates for UK, South Korea, Japan, China, Hong Kong, Taiwan, Australia, New Zealand, Switzerland, Netherlands, France, Germany, USA East/West, Canada, Mexico, and Brazil
 - Partner university selection
 - Student intake form for duration, budget, housing preference, travel style, and activities
 - Accommodation ranking cards with source links
@@ -37,6 +39,8 @@ For the hackathon, the strongest version is not a generic chatbot. It is a cinem
 - South America
 
 These should appear in the product as selectable or upcoming regions, but London receives the polished demo.
+
+The non-London paths should feel visually distinct and useful, but they should remain discovery and comparison surfaces until each destination has its own verified accommodation and logistics provider.
 
 ### Out Of Scope For First Build
 
@@ -68,6 +72,7 @@ These should appear in the product as selectable or upcoming regions, but London
 ### Week 3: Demo Polish
 
 - Add 3D region/globe scene.
+- Use the globe to zoom from region to country to partner universities.
 - Add London cinematic scroll scenes.
 - Add Remotion composition for a 60-90 second demo video.
 - QA mobile and desktop.

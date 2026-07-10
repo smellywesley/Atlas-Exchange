@@ -26,6 +26,9 @@ For the hackathon demo, London is the full-depth path. Other regions are intenti
 ## Current Features
 
 - Premium Next.js web app with cinematic destination discovery.
+- Direct Three.js interactive exchange globe with drag rotation, wheel zoom, and clickable country markers.
+- Country-specific templates for city campuses, mountain routes, coastal routes, heritage routes, US campus corridors, and Pacific routes.
+- Partnership data surfaces for UK, South Korea, Japan, China, Hong Kong, Taiwan, Australia, New Zealand, Switzerland, Netherlands, France, Germany, USA East/West, Canada, Mexico, and Brazil.
 - London partner university cards for UCL, King's College London, Imperial, and LSE.
 - Student intake form for budget, stay length, housing preference, and travel style.
 - Ranked accommodation cards with official and platform links.
@@ -65,7 +68,8 @@ See [docs/FEATURE_4_6_INTEGRATION_PLAN.md](docs/FEATURE_4_6_INTEGRATION_PLAN.md)
 - TypeScript
 - Zod
 - Phosphor Icons
-- CSS-based animated globe scene
+- Three.js
+- Motion for scroll and section transitions
 - Remotion for demo video rendering
 
 ## Getting Started
@@ -161,7 +165,7 @@ Current implementation uses official university housing links and live platform 
 ```text
 Browser
   |
-  | student chooses partner university and submits intake
+  | student spins globe, zooms country, chooses partner university, submits intake
   v
 Next.js App Router
   |
@@ -189,6 +193,8 @@ Dashboard + Remotion Demo
 ```
 
 The shared schema lives in [src/lib/schema.ts](src/lib/schema.ts). All teammate modules should read from and write to `ExchangePlan` instead of creating isolated data shapes.
+
+The interactive country/university atlas lives in [src/lib/exchange-map-data.ts](src/lib/exchange-map-data.ts) and [src/components/RegionGlobe.tsx](src/components/RegionGlobe.tsx).
 
 ## Provider Strategy
 
@@ -220,6 +226,7 @@ Notion project hub:
 ## Current Limitations
 
 - London is the only full-depth demo path.
+- Non-London countries currently show partnership discovery and template-specific planning surfaces, but do not yet generate full destination-specific accommodation plans.
 - Accommodation search is live-link based, not full listing extraction.
 - LLM synthesis is planned but not active by default.
 - No user accounts, persistence, production auth, or payment.

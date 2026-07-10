@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { motion } from "motion/react";
 import {
   ArrowSquareOut,
   CalendarCheck,
@@ -12,13 +13,20 @@ import {
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import { regions, londonPartners } from "@/lib/demo-data";
+import {
+  exchangeCountries,
+  getCountriesForRegion,
+  getDefaultCountryForRegion
+} from "@/lib/exchange-map-data";
 import { buildLondonPlanResponse } from "@/lib/plan-engine";
 import type {
+  DestinationRegion,
   ExchangePlan,
   ExchangeProfileInput,
   PartnerUniversity,
   ProviderStatus
 } from "@/lib/schema";
+import type { ExchangeCountry } from "@/lib/exchange-map-data";
 import { IntakePanel } from "./IntakePanel";
 import { PlanDashboard } from "./PlanDashboard";
 
@@ -37,6 +45,13 @@ const RegionGlobe = dynamic(
   }
 );
 
+const sectionMotion = {
+  initial: { opacity: 0, y: 34 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-90px" },
+  transition: { duration: 0.72, ease: [0.16, 1, 0.3, 1] }
+} as const;
+
 type AtlasShellProps = {
   initialPlan: ExchangePlan;
   initialProviderStatus?: ProviderStatus;
@@ -47,8 +62,14 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
   const [providerStatus, setProviderStatus] = useState(
     initialProviderStatus ?? buildLondonPlanResponse(initialPlan.profile).providerStatus
   );
-  const [activeRegion, setActiveRegion] = useState("uk");
-  const goldenRegion = regions.find((region) => region.id === "uk") ?? regions[0];
+  const [activeRegion, setActiveRegion] = useState<DestinationRegion>("uk");
+  const [selectedCountry, setSelectedCountry] = useState<ExchangeCountry>(
+    exchangeCountries.find((country) => country.id === "united-kingdom") ?? exchangeCountries[0]
+  );
+  const activeCountries = useMemo(
+    () => getCountriesForRegion(activeRegion),
+    [activeRegion]
+  );
   const activePartner = useMemo(
     () =>
       londonPartners.find(
@@ -80,6 +101,16 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     setProviderStatus(response.providerStatus);
   }
 
+  function handleRegionSelect(region: DestinationRegion) {
+    setActiveRegion(region);
+    setSelectedCountry(getDefaultCountryForRegion(region));
+  }
+
+  function handleCountrySelect(country: ExchangeCountry) {
+    setSelectedCountry(country);
+    setActiveRegion(country.region);
+  }
+
   return (
     <main className="site-shell">
       <nav className="top-nav" aria-label="Primary navigation">
@@ -95,7 +126,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         </div>
       </nav>
 
-      <section id="top" className="hero-section">
+      <motion.section id="top" className="hero-section" {...sectionMotion}>
         <div className="hero-backdrop" />
         <div className="hero-copy">
           <p className="hero-kicker">London golden path</p>
@@ -120,24 +151,29 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             <p>{activePartner.campusArea} housing, commute, budget, packing, and deadlines.</p>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section id="regions" className="region-section">
+      <motion.section id="regions" className="region-section" {...sectionMotion}>
         <div className="section-copy">
-          <p className="section-kicker">Global surface, London depth</p>
-          <h2>Start broad, then land on the path judges can test.</h2>
+          <p className="section-kicker">3D exchange atlas</p>
+          <h2>Spin the world, zoom into countries, then choose the partner university.</h2>
           <p>
-            The interface shows a global exchange surface, but London carries the full accommodation and logistics workflow first.
+            The atlas maps NUS exchange partnerships into country paths. London remains the golden demo, while Seoul, Europe, Oceania, North America, and South America are ready for parallel expansion.
           </p>
         </div>
         <div className="region-grid">
-          <RegionGlobe activeRegion={activeRegion} />
+          <RegionGlobe
+            activeRegion={activeRegion}
+            countries={activeCountries}
+            selectedCountry={selectedCountry}
+            onCountrySelect={handleCountrySelect}
+          />
           <div className="region-list">
             {regions.map((region) => (
               <button
                 key={region.id}
                 className={`region-tile ${region.id === activeRegion ? "active" : ""}`}
-                onClick={() => setActiveRegion(region.id)}
+                onClick={() => handleRegionSelect(region.id)}
               >
                 <span>{region.eyebrow}</span>
                 <strong>{region.title}</strong>
@@ -147,45 +183,72 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
           </div>
         </div>
         <div
-          className="region-feature"
-          style={{ backgroundImage: `linear-gradient(90deg, rgba(8,17,17,.9), rgba(8,17,17,.35)), url(${goldenRegion.image})` }}
+          className={`region-feature country-template-${selectedCountry.template}`}
+          style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
         >
           <div>
             <MapPin size={22} weight="duotone" />
-            <span>{goldenRegion.cities.join(" / ")}</span>
+            <span>{selectedCountry.name} / {selectedCountry.focusLabel}</span>
           </div>
-          <p>{goldenRegion.description}</p>
+          <p>{selectedCountry.logisticsAngle}</p>
         </div>
-      </section>
+      </motion.section>
 
-      <section id="universities" className="university-section">
+      <motion.section id="universities" className="university-section" {...sectionMotion}>
         <div className="section-copy compact">
           <p className="section-kicker">Partner universities</p>
-          <h2>London becomes the first complete exchange operating view.</h2>
+          <h2>{selectedCountry.name} gets a unique exchange template.</h2>
+          <p>
+            Country cards keep the same architecture but adapt the story: mountain routes, coastal commute routes, dense city campuses, or US East/West campus corridors.
+          </p>
         </div>
         <div className="university-grid">
-          {londonPartners.map((partner) => (
-            <button
-              key={partner.id}
-              type="button"
-              className={`university-card ${partner.id === activePartner.id ? "active" : ""}`}
-              onClick={() => handlePartnerSelect(partner)}
-            >
-              <div
-                className="university-image"
-                style={{ backgroundImage: `url(${partner.heroImage})` }}
-              />
-              <div className="university-body">
-                <span>{partner.campusArea}</span>
-                <h3>{partner.name}</h3>
-                <p>{partner.strengths.join(", ")}</p>
-              </div>
-            </button>
-          ))}
+          {selectedCountry.id === "united-kingdom"
+            ? londonPartners.map((partner) => (
+                <button
+                  key={partner.id}
+                  type="button"
+                  className={`university-card ${partner.id === activePartner.id ? "active" : ""}`}
+                  onClick={() => handlePartnerSelect(partner)}
+                >
+                  <div
+                    className={`university-image template-${selectedCountry.template}`}
+                    style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
+                  />
+                  <div className="university-body">
+                    <span>{partner.campusArea}</span>
+                    <h3>{partner.name}</h3>
+                    <p>{partner.strengths.join(", ")}</p>
+                  </div>
+                </button>
+              ))
+            : selectedCountry.universities.slice(0, 8).map((university) => (
+                <a
+                  key={`${university.name}-${university.city}-${university.partnership}`}
+                  className="university-card"
+                  href={university.sourceUrl ?? "#planner"}
+                  target={university.sourceUrl ? "_blank" : undefined}
+                  rel={university.sourceUrl ? "noreferrer" : undefined}
+                >
+                  <div
+                    className={`university-image template-${selectedCountry.template}`}
+                    style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
+                  />
+                  <div className="university-body">
+                    <span>{university.city} / {university.partnership}</span>
+                    <h3>{university.name}</h3>
+                    <p>
+                      {university.faculties
+                        ? `Faculty route: ${university.faculties.join(", ")}`
+                        : selectedCountry.logisticsAngle}
+                    </p>
+                  </div>
+                </a>
+              ))}
         </div>
-      </section>
+      </motion.section>
 
-      <section id="planner" className="planner-section">
+      <motion.section id="planner" className="planner-section" {...sectionMotion}>
         <div className="planner-intro">
           <p className="section-kicker">Living plan</p>
           <h2>Requirements in. Ranked actions out.</h2>
@@ -197,7 +260,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
           <IntakePanel plan={plan} onSubmit={handleProfileSubmit} />
           <PlanDashboard plan={plan} providerStatus={providerStatus} />
         </div>
-      </section>
+      </motion.section>
 
       <section className="capability-band" aria-label="Feature modules">
         <div>
@@ -222,7 +285,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         </div>
       </section>
 
-      <section id="sources" className="sources-section">
+      <motion.section id="sources" className="sources-section" {...sectionMotion}>
         <div className="section-copy compact">
           <p className="section-kicker">Trust layer</p>
           <h2>Every recommendation keeps its evidence visible.</h2>
@@ -239,7 +302,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             </a>
           ))}
         </div>
-      </section>
+      </motion.section>
 
       <footer className="site-footer">
         <Compass size={24} weight="duotone" />
