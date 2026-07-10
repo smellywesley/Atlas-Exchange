@@ -8,6 +8,7 @@ export type ExchangeUniversity = {
   partnership: PartnershipKind;
   faculties?: string[];
   sourceUrl?: string;
+  identityTitle?: string;
 };
 
 export type ExchangeCountry = {
@@ -167,6 +168,101 @@ const universityCoordinates: Record<string, { latitude: number; longitude: numbe
   "mcgill university": { latitude: 45.5048, longitude: -73.5772 },
   "fgv eaesp": { latitude: -23.5536, longitude: -46.6508 },
   "universidade de sao paulo": { latitude: -23.5596, longitude: -46.7314 }
+};
+
+const universityIdentityTitles: Record<string, string> = {
+  "university college london": "UCL",
+  "king's college london": "King's College London",
+  "imperial college london": "Imperial College London",
+  "london school of economics": "London School of Economics",
+  "university of edinburgh": "University of Edinburgh",
+  "university of cambridge": "University of Cambridge",
+  "university of oxford": "University of Oxford",
+  "seoul national university": "Seoul National University",
+  "yonsei university": "Yonsei University",
+  "korea university": "Korea University",
+  kaist: "KAIST",
+  postech: "POSTECH",
+  "ewha womans university": "Ewha Womans University",
+  "hanyang university": "Hanyang University",
+  "university of tokyo": "University of Tokyo",
+  "waseda university": "Waseda University",
+  "keio university": "Keio University",
+  "kyoto university": "Kyoto University",
+  "university of osaka": "Osaka University",
+  "institute of science tokyo": "Institute of Science Tokyo",
+  "hitotsubashi university": "Hitotsubashi University",
+  "peking university": "Peking University",
+  "tsinghua university": "Tsinghua University",
+  "fudan university": "Fudan University",
+  "shanghai jiao tong university": "Shanghai Jiao Tong University",
+  "zhejiang university": "Zhejiang University",
+  "nanjing university": "Nanjing University",
+  "university of hong kong": "University of Hong Kong",
+  "chinese university of hong kong": "Chinese University of Hong Kong",
+  "city university of hong kong": "City University of Hong Kong",
+  "hong kong polytechnic university": "Hong Kong Polytechnic University",
+  "hong kong university of science and technology": "Hong Kong University of Science and Technology",
+  "national taiwan university": "National Taiwan University",
+  "national cheng kung university": "National Cheng Kung University",
+  "national tsing hua university": "National Tsing Hua University",
+  "national yang ming chiao tung university": "National Yang Ming Chiao Tung University",
+  "national chengchi university": "National Chengchi University",
+  "university of sydney": "University of Sydney",
+  "university of melbourne": "University of Melbourne",
+  "australian national university": "Australian National University",
+  "monash university": "Monash University",
+  "university of new south wales": "University of New South Wales",
+  "university of queensland": "University of Queensland",
+  "university of auckland": "University of Auckland",
+  "university of canterbury": "University of Canterbury",
+  "university of otago": "University of Otago",
+  "victoria university of wellington": "Victoria University of Wellington",
+  "eth zurich": "ETH Zurich",
+  epfl: "EPFL",
+  "university of zurich": "University of Zurich",
+  "university of geneva": "University of Geneva",
+  "university of lausanne": "University of Lausanne",
+  "university of st gallen": "University of St. Gallen",
+  "delft university of technology": "Delft University of Technology",
+  "eindhoven university of technology": "Eindhoven University of Technology",
+  "university of amsterdam": "University of Amsterdam",
+  "utrecht university": "Utrecht University",
+  "erasmus university rotterdam": "Erasmus University Rotterdam",
+  "leiden university": "Leiden University",
+  "sciences po": "Sciences Po",
+  centralesupelec: "CentraleSupelec",
+  "mines paris": "Mines Paris - PSL",
+  "insa lyon": "INSA Lyon",
+  "hec paris": "HEC Paris",
+  "essec business school": "ESSEC Business School",
+  "technical university of munich": "Technical University of Munich",
+  "rwth aachen university": "RWTH Aachen University",
+  "free university of berlin": "Free University of Berlin",
+  "humboldt university of berlin": "Humboldt University of Berlin",
+  "university of mannheim": "University of Mannheim",
+  "karlsruhe institute of technology": "Karlsruhe Institute of Technology",
+  "princeton university": "Princeton University",
+  "university of pennsylvania": "University of Pennsylvania",
+  "cornell university": "Cornell University",
+  "boston university": "Boston University",
+  "georgetown university": "Georgetown University",
+  "new york university": "New York University",
+  "university of california system-wide": "University of California",
+  "university of southern california": "University of Southern California",
+  "university of washington, seattle": "University of Washington",
+  "university of oregon": "University of Oregon",
+  "stanford university": "Stanford University",
+  "university of toronto": "University of Toronto",
+  "university of british columbia": "University of British Columbia",
+  "mcgill university": "McGill University",
+  "university of waterloo": "University of Waterloo",
+  "queen's university, kingston": "Queen's University at Kingston",
+  "western university": "Western University",
+  "tecnologico de monterrey": "Monterrey Institute of Technology and Higher Education",
+  itam: "Instituto Tecnologico Autonomo de Mexico",
+  "fgv eaesp": "Fundacao Getulio Vargas",
+  "universidade de sao paulo": "University of Sao Paulo"
 };
 
 export const exchangeCountries: ExchangeCountry[] = [
@@ -532,6 +628,10 @@ export function getUniversityCoordinates(
     latitude: base.latitude + offset * 0.28,
     longitude: base.longitude + offset
   };
+}
+
+export function getUniversityIdentityTitle(university: Pick<ExchangeUniversity, "name" | "identityTitle">) {
+  return university.identityTitle ?? universityIdentityTitles[university.name.toLowerCase()] ?? university.name;
 }
 
 export function getAllUniversities(): SearchableExchangeUniversity[] {

@@ -32,6 +32,8 @@ export type PartnerUniversity = {
 
 export const exchangeProfileInputSchema = z.object({
   partnerUniversityId: z.string().optional(),
+  countryId: z.string().optional(),
+  universityName: z.string().optional(),
   monthlyBudgetSgd: z.number().min(800).max(12000),
   stayLengthMonths: z.number().min(1).max(12),
   housingPreference: z.enum(["school", "private", "shared", "solo", "hotel"]),
@@ -126,6 +128,30 @@ export type LocalLifePlan = {
   communityIdeas: string[];
 };
 
+export type DailyLogisticsItem = {
+  title: string;
+  detail: string;
+  timing: "arrival" | "week-one" | "ongoing";
+  linkedFeature: "visa" | "accommodation" | "moduleMapping" | "budget" | "packing" | "travel" | "localLife";
+  sourceRefIds: string[];
+};
+
+export type DailyLogisticsPlan = {
+  arrival: DailyLogisticsItem[];
+  weekOne: DailyLogisticsItem[];
+  ongoing: DailyLogisticsItem[];
+  parentAssurance: string[];
+  openQuestions: string[];
+};
+
+export type PlanQuestionAnswer = {
+  id: string;
+  question: string;
+  answer: string;
+  confidence: "low" | "medium" | "high";
+  sourceRefIds: string[];
+};
+
 export type ExchangePlan = {
   profile: ExchangeProfile;
   partnerUniversity: PartnerUniversity;
@@ -134,6 +160,8 @@ export type ExchangePlan = {
   packing: PackingPlan;
   deadlines: DeadlineItem[];
   localLife: LocalLifePlan;
+  dailyLogistics: DailyLogisticsPlan;
+  qna: PlanQuestionAnswer[];
   sources: SourceRef[];
   generatedAt: string;
 };

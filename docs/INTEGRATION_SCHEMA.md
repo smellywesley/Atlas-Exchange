@@ -51,6 +51,18 @@ export type ExchangeProfile = {
   plannedActivities: string[];
 };
 
+export type ExchangeProfileInput = {
+  partnerUniversityId?: string;
+  countryId?: string;
+  universityName?: string;
+  stayLengthMonths: number;
+  monthlyBudgetSgd: number;
+  housingPreference: "school" | "private" | "shared" | "solo" | "hotel";
+  travelStyle: "budget" | "balanced" | "comfort";
+  dietaryNeeds: string[];
+  plannedActivities: string[];
+};
+
 export type AccommodationOption = {
   id: string;
   title: string;
@@ -123,6 +135,22 @@ export type LocalLifePlan = {
   communityIdeas: string[];
 };
 
+export type DailyLogisticsPlan = {
+  arrival: DailyLogisticsItem[];
+  weekOne: DailyLogisticsItem[];
+  ongoing: DailyLogisticsItem[];
+  parentAssurance: string[];
+  openQuestions: string[];
+};
+
+export type PlanQuestionAnswer = {
+  id: string;
+  question: string;
+  answer: string;
+  confidence: "low" | "medium" | "high";
+  sourceRefIds: string[];
+};
+
 export type ExchangePlan = {
   profile: ExchangeProfile;
   partnerUniversity: PartnerUniversity;
@@ -131,6 +159,8 @@ export type ExchangePlan = {
   packing: PackingPlan;
   deadlines: DeadlineItem[];
   localLife: LocalLifePlan;
+  dailyLogistics: DailyLogisticsPlan;
+  qna: PlanQuestionAnswer[];
   sources: SourceRef[];
   generatedAt: string;
 };
@@ -140,7 +170,13 @@ export type ExchangePlan = {
 
 ### `POST /api/plan`
 
-Input: `ExchangeProfile`
+Input: `ExchangeProfileInput`
+
+Global routing fields:
+
+- `countryId`: routes the request to a specific atlas country.
+- `universityName`: routes the request to a specific partner university inside that country.
+- `partnerUniversityId`: preserves London partner IDs such as `ucl`.
 
 Output:
 
@@ -208,3 +244,4 @@ Initial providers:
 - LLM synthesis can rank and explain, but cannot invent provider URLs.
 - Any fallback result must be labeled `seeded-fallback`.
 - Deadlines from teammate modules merge by category and urgency.
+- The no-key logistics agent can generate daily logistics and Q&A for every partner country, but answers must cite source refs or show low/medium confidence until live providers are wired.

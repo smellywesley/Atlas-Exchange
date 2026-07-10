@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import type { DestinationRegion } from "@/lib/schema";
 import { getUniversityCoordinates, type ExchangeCountry } from "@/lib/exchange-map-data";
@@ -11,7 +11,7 @@ type RegionGlobeProps = {
   selectedCountry: ExchangeCountry;
   isDetailOpen: boolean;
   highlightedUniversityName?: string;
-  onCountrySelect: (country: ExchangeCountry, universityName?: string) => void;
+  onCountrySelect: (country: ExchangeCountry, universityName?: string, shouldScroll?: boolean) => void;
 };
 
 type MarkerRecord = {
@@ -39,16 +39,12 @@ export function RegionGlobe({
   onCountrySelect
 }: RegionGlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const selectedRef = useRef(selectedCountry);
   const isDetailOpenRef = useRef(isDetailOpen);
   const highlightedUniversityNameRef = useRef(highlightedUniversityName);
   const countriesRef = useRef(countries);
   const onCountrySelectRef = useRef(onCountrySelect);
-
-  const visibleUniversities = useMemo(
-    () => selectedCountry.universities.slice(0, 5),
-    [selectedCountry]
-  );
 
   useEffect(() => {
     selectedRef.current = selectedCountry;
@@ -102,6 +98,10 @@ export function RegionGlobe({
     const globeGroup = new THREE.Group();
     scene.add(globeGroup);
 
+    const loadedTextures: THREE.Texture[] = [];
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.setCrossOrigin("anonymous");
+
     const earthTexture = new THREE.CanvasTexture(createEarthTexture());
     earthTexture.colorSpace = THREE.SRGBColorSpace;
     earthTexture.anisotropy = 4;
@@ -116,6 +116,18 @@ export function RegionGlobe({
     );
     globeGroup.add(globe);
 
+    textureLoader.load(
+      "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg",
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 4;
+        loadedTextures.push(texture);
+        const material = globe.material as THREE.MeshStandardMaterial;
+        material.map = texture;
+        material.needsUpdate = true;
+      }
+    );
+
     const cloudTexture = new THREE.CanvasTexture(createCloudTexture());
     const clouds = new THREE.Mesh(
       new THREE.SphereGeometry(1.575, 96, 96),
@@ -127,6 +139,18 @@ export function RegionGlobe({
       })
     );
     globeGroup.add(clouds);
+
+    textureLoader.load(
+      "https://threejs.org/examples/textures/planets/earth_clouds_1024.png",
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        loadedTextures.push(texture);
+        const material = clouds.material as THREE.MeshStandardMaterial;
+        material.map = texture;
+        material.opacity = 0.34;
+        material.needsUpdate = true;
+      }
+    );
 
     const atmosphere = new THREE.Mesh(
       new THREE.SphereGeometry(1.64, 96, 96),
@@ -326,7 +350,7 @@ export function RegionGlobe({
       }
       setPointerFromEvent(event);
       raycaster.setFromCamera(pointer, camera);
-      const intersections = raycaster.intersectObjects(markerGroup.children, false);
+      const intersections = raycaster.intersectObjects(markerGroup.children, true);
       const picked = intersections[0]?.object;
       const countryId = picked?.userData.countryId as string | undefined;
       const universityName = picked?.userData.universityName as string | undefined;
@@ -337,7 +361,7 @@ export function RegionGlobe({
         highlightedUniversityNameRef.current = universityName;
         focusCountry(country);
         updateMarkerMaterials();
-        onCountrySelectRef.current(country, universityName);
+        onCountrySelectRef.current(country, universityName, Boolean(universityName));
       }
     }
 
@@ -388,6 +412,7 @@ export function RegionGlobe({
       renderer.domElement.removeEventListener("wheel", onWheel);
       earthTexture.dispose();
       cloudTexture.dispose();
+      loadedTextures.forEach((texture) => texture.dispose());
       globe.geometry.dispose();
       clouds.geometry.dispose();
       atmosphere.geometry.dispose();
@@ -403,18 +428,21 @@ export function RegionGlobe({
 
   return (
     <div
-      className={`globe-card globe-template-${selectedCountry.template}`}
+      className={`globe-card globe-template-${selectedCountry.template} ${isFullscreen ? "is-fullscreen" : ""}`}
       style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
-      aria-label={`Interactive exchange globe ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
+      aria-label={`Interactive exchange atlas ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
     >
       <div ref={mountRef} className="three-globe-mount" />
       <div className="globe-hud">
         <div>
-          <span>Drag / zoom / click university labels</span>
+          <span>Drag / zoom / click university markers</span>
           <strong>{selectedCountry.name}</strong>
         </div>
+        <button type="button" onClick={() => setIsFullscreen((value) => !value)}>
+          {isFullscreen ? "Exit atlas" : "Full-screen atlas"}
+        </button>
       </div>
-      <div className="country-orbit-list" aria-label={`${activeRegion} exchange country options`}>
+      <div className="country-orbit-list" aria-label="Global exchange country options">
         {countries.map((country) => (
           <button
             key={country.id}
@@ -434,12 +462,12 @@ export function RegionGlobe({
           <p>{selectedCountry.summary}</p>
           <div className="country-logistics-note">{selectedCountry.logisticsAngle}</div>
           <div className="country-university-list">
-            {visibleUniversities.map((university) => (
+            {selectedCountry.universities.map((university) => (
               <button
                 key={`${university.name}-${university.city}-${university.partnership}`}
                 type="button"
                 className={university.name === highlightedUniversityName ? "active" : ""}
-                onClick={() => onCountrySelect(selectedCountry, university.name)}
+                onClick={() => onCountrySelect(selectedCountry, university.name, true)}
               >
                 <strong>{university.name}</strong>
                 <span>

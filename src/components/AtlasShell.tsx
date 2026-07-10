@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { motion } from "motion/react";
 import {
   ArrowSquareOut,
@@ -26,13 +26,14 @@ import {
   getAllUniversities,
   getCampusIntelligence,
   getCountriesForRegion,
-  getDefaultCountryForRegion
+  getDefaultCountryForRegion,
+  getUniversityIdentityTitle
 } from "@/lib/exchange-map-data";
-import { buildAtlasPlanResponse, buildLondonPlanResponse } from "@/lib/plan-engine";
 import type {
   DestinationRegion,
   ExchangePlan,
   ExchangeProfileInput,
+  PlanResponse,
   PartnerUniversity,
   ProviderStatus
 } from "@/lib/schema";
@@ -67,6 +68,21 @@ const sectionMotion = {
   transition: { duration: 0.72, ease: [0.16, 1, 0.3, 1] }
 } as const;
 
+const identityImageCache = new Map<string, string | null>();
+
+const fallbackProviderStatus: ProviderStatus = {
+  mode: "mock",
+  planner: "deterministic",
+  search: "live-link",
+  costControl: {
+    llmCallsPerSubmit: 0,
+    maxSourceSnippets: 6,
+    maxOutputTokens: 1800,
+    cacheRecommended: true
+  },
+  warnings: ["Provider status was not supplied by the server. Deterministic planning is active."]
+};
+
 type AtlasShellProps = {
   initialPlan: ExchangePlan;
   initialProviderStatus?: ProviderStatus;
@@ -75,7 +91,7 @@ type AtlasShellProps = {
 export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellProps) {
   const [plan, setPlan] = useState(initialPlan);
   const [providerStatus, setProviderStatus] = useState(
-    initialProviderStatus ?? buildLondonPlanResponse(initialPlan.profile).providerStatus
+    initialProviderStatus ?? fallbackProviderStatus
   );
   const [activeRegion, setActiveRegion] = useState<DestinationRegion>("uk");
   const [selectedCountry, setSelectedCountry] = useState<ExchangeCountry>(
@@ -134,6 +150,8 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
   function getCurrentProfileInput(): ExchangeProfileInput {
     return {
       partnerUniversityId: plan.profile.partnerUniversityId,
+      countryId: selectedCountry.id,
+      universityName: selectedExchangeUniversity.name,
       monthlyBudgetSgd: plan.profile.monthlyBudgetSgd,
       stayLengthMonths: plan.profile.stayLengthMonths,
       housingPreference: plan.profile.housingPreference,
@@ -143,16 +161,48 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     };
   }
 
-  function syncPlanToSelection(country: ExchangeCountry, university: ExchangeUniversity) {
-    const response = buildAtlasPlanResponse(country, university, getCurrentProfileInput());
-    setPlan(response.plan);
-    setProviderStatus(response.providerStatus);
+  async function requestPlan(
+    country: ExchangeCountry,
+    university: ExchangeUniversity,
+    input: ExchangeProfileInput
+  ) {
+    const response = await fetch("/api/plan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        ...input,
+        countryId: country.id,
+        universityName: university.name
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Plan request failed with ${response.status}`);
+    }
+
+    return response.json() as Promise<PlanResponse>;
   }
 
-  function handleProfileSubmit(input: ExchangeProfileInput) {
-    const response = buildAtlasPlanResponse(selectedCountry, selectedExchangeUniversity, input);
-    setPlan(response.plan);
-    setProviderStatus(response.providerStatus);
+  async function syncPlanToSelection(country: ExchangeCountry, university: ExchangeUniversity) {
+    try {
+      const response = await requestPlan(country, university, getCurrentProfileInput());
+      setPlan(response.plan);
+      setProviderStatus(response.providerStatus);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleProfileSubmit(input: ExchangeProfileInput) {
+    try {
+      const response = await requestPlan(selectedCountry, selectedExchangeUniversity, input);
+      setPlan(response.plan);
+      setProviderStatus(response.providerStatus);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   function scrollToCampusIntelligence() {
@@ -164,8 +214,13 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     });
   }
 
-  function handlePartnerSelect(partner: PartnerUniversity) {
-    const response = buildLondonPlanResponse({
+  async function handlePartnerSelect(partner: PartnerUniversity) {
+    const ukCountry = exchangeCountries.find((country) => country.id === "united-kingdom") ?? selectedCountry;
+    const ukUniversity =
+      ukCountry.universities.find((university) => university.name === partner.name) ??
+      ukCountry.universities[0];
+
+    const input = {
       partnerUniversityId: partner.id,
       monthlyBudgetSgd: plan.profile.monthlyBudgetSgd,
       stayLengthMonths: plan.profile.stayLengthMonths,
@@ -173,14 +228,19 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       travelStyle: plan.profile.travelStyle,
       dietaryNeeds: plan.profile.dietaryNeeds,
       plannedActivities: plan.profile.plannedActivities
-    });
-    const ukCountry = exchangeCountries.find((country) => country.id === "united-kingdom") ?? selectedCountry;
+    };
+
     setActiveRegion("uk");
     setSelectedCountry(ukCountry);
     setIsCountryDetailOpen(true);
     setHighlightedUniversityName(partner.name);
-    setPlan(response.plan);
-    setProviderStatus(response.providerStatus);
+    try {
+      const response = await requestPlan(ukCountry, ukUniversity, input);
+      setPlan(response.plan);
+      setProviderStatus(response.providerStatus);
+    } catch (error) {
+      console.error(error);
+    }
     scrollToCampusIntelligence();
   }
 
@@ -190,7 +250,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     setSelectedCountry(defaultCountry);
     setIsCountryDetailOpen(false);
     setHighlightedUniversityName(defaultCountry.universities[0]?.name);
-    syncPlanToSelection(defaultCountry, defaultCountry.universities[0]);
+    void syncPlanToSelection(defaultCountry, defaultCountry.universities[0]);
   }
 
   function handleCountrySelect(country: ExchangeCountry, universityName?: string, shouldScroll = false) {
@@ -201,7 +261,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     setActiveRegion(country.region);
     setIsCountryDetailOpen(true);
     setHighlightedUniversityName(selectedUniversity.name);
-    syncPlanToSelection(country, selectedUniversity);
+    void syncPlanToSelection(country, selectedUniversity);
     if (shouldScroll) {
       scrollToCampusIntelligence();
     }
@@ -265,7 +325,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         <div className="region-grid">
           <RegionGlobe
             activeRegion={activeRegion}
-            countries={activeCountries}
+            countries={exchangeCountries}
             selectedCountry={selectedCountry}
             isDetailOpen={isCountryDetailOpen}
             highlightedUniversityName={highlightedUniversityName}
@@ -347,15 +407,12 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                 >
                   <UniversityVisual
                     country={selectedCountry}
-                    title={partner.name}
+                    university={{
+                      name: partner.name,
+                      city: partner.city,
+                      partnership: "university-wide"
+                    }}
                     subtitle={partner.campusArea}
-                    mapEmbedUrl={
-                      getCampusIntelligence(selectedCountry, {
-                        name: partner.name,
-                        city: partner.city,
-                        partnership: "university-wide"
-                      }).mapEmbedUrl
-                    }
                     index={londonPartners.findIndex((item) => item.id === partner.id)}
                   />
                   <div className="university-body">
@@ -374,9 +431,8 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                 >
                   <UniversityVisual
                     country={selectedCountry}
-                    title={university.name}
+                    university={university}
                     subtitle={university.city}
-                    mapEmbedUrl={getCampusIntelligence(selectedCountry, university).mapEmbedUrl}
                     index={index}
                   />
                   <div className="university-body">
@@ -464,39 +520,143 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
 
 function UniversityVisual({
   country,
-  title,
+  university,
   subtitle,
-  mapEmbedUrl,
   index
 }: {
   country: ExchangeCountry;
-  title: string;
+  university: ExchangeUniversity;
   subtitle: string;
-  mapEmbedUrl: string;
   index: number;
 }) {
+  const identityImage = useUniversityIdentityImage(university);
+  const identityTitle = getUniversityIdentityTitle(university);
+
   return (
     <div
       className={`university-image template-${country.template}`}
       style={{ "--country-accent": country.accent } as CSSProperties}
       aria-hidden="true"
     >
-      <div className="university-map-preview">
-        <iframe
-          title={`${title} map preview`}
-          src={mapEmbedUrl}
+      {identityImage ? (
+        <img
+          className="university-identity-photo"
+          src={identityImage}
+          alt=""
           loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          tabIndex={-1}
         />
-      </div>
+      ) : (
+        <div className="university-identity-fallback">
+          <span className="campus-layout-line line-a" />
+          <span className="campus-layout-line line-b" />
+          <span className="campus-layout-line line-c" />
+          <span className="campus-layout-node node-a" />
+          <span className="campus-layout-node node-b" />
+          <span className="campus-layout-node node-c" />
+        </div>
+      )}
       <div className="visual-caption">
         <span>{subtitle}</span>
         <strong>{index + 1 < 10 ? `0${index + 1}` : index + 1}</strong>
       </div>
-      <span className="visual-source">Google Maps preview</span>
-      <p>{title}</p>
+      <span className="visual-source">Campus image</span>
+      <p>{identityTitle}</p>
     </div>
+  );
+}
+
+function useUniversityIdentityImage(university: ExchangeUniversity) {
+  const identityTitle = getUniversityIdentityTitle(university);
+  const [imageUrl, setImageUrl] = useState<string | null>(() => identityImageCache.get(identityTitle) ?? null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const cached = identityImageCache.get(identityTitle);
+
+    if (cached !== undefined) {
+      setImageUrl(cached);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const controller = new AbortController();
+    const endpoint = new URL("https://commons.wikimedia.org/w/api.php");
+    endpoint.search = new URLSearchParams({
+      action: "query",
+      format: "json",
+      origin: "*",
+      generator: "search",
+      gsrnamespace: "6",
+      gsrlimit: "12",
+      gsrsearch: `${identityTitle} campus building`,
+      prop: "imageinfo",
+      iiprop: "url|mime",
+      iiurlwidth: "960"
+    }).toString();
+
+    fetch(endpoint.toString(), { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: CommonsSearchResponse | null) => {
+        const pages = Object.values(payload?.query?.pages ?? {});
+        const resolvedImage =
+          pages
+            .map((page) => ({
+              title: page.title,
+              image: page.imageinfo?.[0]
+            }))
+            .find(({ title, image }) => image?.thumburl && isCampusPhotoCandidate(title, image))?.image
+            ?.thumburl ?? null;
+        identityImageCache.set(identityTitle, resolvedImage);
+        if (isMounted) {
+          setImageUrl(resolvedImage);
+        }
+      })
+      .catch(() => {
+        identityImageCache.set(identityTitle, null);
+        if (isMounted) {
+          setImageUrl(null);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [identityTitle]);
+
+  return imageUrl;
+}
+
+type CommonsSearchResponse = {
+  query?: {
+    pages?: Record<
+      string,
+      {
+        title: string;
+        imageinfo?: Array<{
+          thumburl?: string;
+          url?: string;
+          mime?: string;
+        }>;
+      }
+    >;
+  };
+};
+
+function isCampusPhotoCandidate(
+  title: string,
+  image: { thumburl?: string; url?: string; mime?: string }
+) {
+  const haystack = `${title} ${image.thumburl ?? ""} ${image.url ?? ""}`.toLowerCase();
+  const blocked = ["logo", "seal", "crest", "emblem", "badge", "icon", "coat_of_arms", "coat-of-arms", ".svg"];
+  const positive = ["campus", "building", "hall", "library", "quad", "university", "college", "school"];
+
+  return (
+    Boolean(image.thumburl) &&
+    Boolean(image.mime?.startsWith("image/")) &&
+    !blocked.some((word) => haystack.includes(word)) &&
+    positive.some((word) => haystack.includes(word))
   );
 }
 

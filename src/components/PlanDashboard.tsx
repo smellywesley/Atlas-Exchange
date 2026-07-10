@@ -18,10 +18,11 @@ type PlanDashboardProps = {
   providerStatus: ProviderStatus;
 };
 
-const tabs = ["Overview", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life"] as const;
+const tabs = ["Overview", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life", "Daily Plan", "Q&A"] as const;
 
 export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Accommodation");
+  const activeTabId = tabId(activeTab);
 
   return (
     <section className="dashboard-panel" aria-label="Exchange plan dashboard">
@@ -40,7 +41,12 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
         {tabs.map((tab) => (
           <button
             key={tab}
+            id={`plan-tab-${tabId(tab)}`}
             type="button"
+            role="tab"
+            aria-selected={tab === activeTab}
+            aria-controls={`plan-panel-${tabId(tab)}`}
+            tabIndex={tab === activeTab ? 0 : -1}
             className={tab === activeTab ? "active" : ""}
             onClick={() => setActiveTab(tab)}
           >
@@ -49,13 +55,20 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
         ))}
       </div>
 
-      <div className="tab-panel">
+      <div
+        id={`plan-panel-${activeTabId}`}
+        className="tab-panel"
+        role="tabpanel"
+        aria-labelledby={`plan-tab-${activeTabId}`}
+      >
         {activeTab === "Overview" && <Overview plan={plan} />}
         {activeTab === "Accommodation" && <Accommodation plan={plan} />}
         {activeTab === "Budget" && <Budget plan={plan} />}
         {activeTab === "Packing" && <Packing plan={plan} />}
         {activeTab === "Deadlines" && <Deadlines plan={plan} />}
         {activeTab === "Local Life" && <LocalLife plan={plan} />}
+        {activeTab === "Daily Plan" && <DailyPlan plan={plan} />}
+        {activeTab === "Q&A" && <Qna plan={plan} />}
       </div>
 
       <ProviderBanner providerStatus={providerStatus} />
@@ -64,9 +77,11 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
 }
 
 function Overview({ plan }: { plan: ExchangePlan }) {
+  const topHousingFit = plan.accommodation.rankedOptions[0]?.fitScore;
+
   return (
     <div className="overview-grid">
-      <Metric icon={<HouseLine size={24} />} label="Top housing fit" value={`${plan.accommodation.rankedOptions[0].fitScore}/100`} />
+      <Metric icon={<HouseLine size={24} />} label="Top housing fit" value={topHousingFit !== undefined ? `${topHousingFit}/100` : "Needs review"} />
       <Metric icon={<Wallet size={24} />} label="Monthly estimate" value={`SGD ${plan.budget.monthlyEstimateSgd.toLocaleString()}`} />
       <Metric icon={<CalendarCheck size={24} />} label="High urgency tasks" value={`${plan.deadlines.filter((item) => item.urgency === "high").length}`} />
       <Metric icon={<ListChecks size={24} />} label="Source cards" value={`${plan.sources.length}`} />
@@ -79,6 +94,20 @@ function Overview({ plan }: { plan: ExchangePlan }) {
 }
 
 function Accommodation({ plan }: { plan: ExchangePlan }) {
+  if (plan.accommodation.rankedOptions.length === 0) {
+    return (
+      <div className="listing-stack">
+        <article className="listing-card">
+          <div className="listing-main">
+            <span>needs-review</span>
+            <h4>No accommodation options ready yet</h4>
+            <p>Run the accommodation provider or use a seeded fallback before presenting this as booking-ready.</p>
+          </div>
+        </article>
+      </div>
+    );
+  }
+
   return (
     <div className="listing-stack">
       {plan.accommodation.rankedOptions.map((option) => (
@@ -176,6 +205,66 @@ function LocalLife({ plan }: { plan: ExchangePlan }) {
       </div>
     </div>
   );
+}
+
+function DailyPlan({ plan }: { plan: ExchangePlan }) {
+  const groups = [
+    ["Arrival", plan.dailyLogistics.arrival],
+    ["Week one", plan.dailyLogistics.weekOne],
+    ["Ongoing", plan.dailyLogistics.ongoing]
+  ] as const;
+
+  return (
+    <div className="daily-logistics-grid">
+      {groups.map(([label, items]) => (
+        <article key={label} className="logistics-column">
+          <span>{label}</span>
+          {items.map((item, index) => (
+            <div key={`${label}-${item.timing}-${index}`} className="logistics-item">
+              <strong>{item.title}</strong>
+              <p>{item.detail}</p>
+              <small>{item.linkedFeature} / {item.sourceRefIds.length} source refs</small>
+            </div>
+          ))}
+        </article>
+      ))}
+      <article className="parent-assurance-card">
+        <span>Parent assurance</span>
+        {plan.dailyLogistics.parentAssurance.map((note, index) => (
+          <p key={`parent-assurance-${index}`}>{note}</p>
+        ))}
+      </article>
+    </div>
+  );
+}
+
+function Qna({ plan }: { plan: ExchangePlan }) {
+  return (
+    <div className="qna-stack">
+      {plan.qna.map((item) => (
+        <article key={item.id} className="qna-card">
+          <div>
+            <span>{item.confidence} confidence / {item.sourceRefIds.length} source refs</span>
+            <h4>{item.question}</h4>
+          </div>
+          <p>{item.answer}</p>
+        </article>
+      ))}
+      <article className="qna-card open-questions">
+        <div>
+          <span>Needs teammate input</span>
+          <h4>Open planning questions</h4>
+        </div>
+        {plan.dailyLogistics.openQuestions.map((question, index) => (
+          <p key={`open-question-${index}`}>{question}</p>
+        ))}
+      </article>
+    </div>
+  );
+}
+
+function tabId(tab: (typeof tabs)[number]) {
+  return tab.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

@@ -1,5 +1,6 @@
 import { londonPartners } from "./demo-data";
 import type { ExchangeCountry, ExchangeUniversity } from "./exchange-map-data";
+import { buildLogisticsAgentArtifacts } from "./logistics-agent";
 import { getProviderStatus } from "./provider-status";
 import { searchLondonAccommodation } from "./search-provider";
 import type {
@@ -44,24 +45,37 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
   const packing = buildPacking(input);
   const deadlines = buildDeadlines(partnerUniversity);
   const localLife = buildLocalLife();
+  const accommodation = {
+    rankedOptions: accommodationSearch.options,
+    recommendationSummary:
+      `Apply for ${partnerUniversity.name} housing first, keep a purpose-built student room as the backup, and use Airbnb or Agoda only as an arrival buffer.`,
+    risks: [
+      "London housing changes quickly, so external links need manual verification before booking.",
+      "Private rentals can require deposits, guarantors, or longer leases than an exchange semester."
+    ],
+    generatedBy: "mock" as const
+  };
+  const logisticsAgent = buildLogisticsAgentArtifacts({
+    profile,
+    partnerUniversity,
+    budget,
+    accommodation,
+    packing,
+    deadlines,
+    localLife,
+    sources: accommodationSearch.sources
+  });
 
   return {
     profile,
     partnerUniversity,
     budget,
-    accommodation: {
-      rankedOptions: accommodationSearch.options,
-      recommendationSummary:
-        `Apply for ${partnerUniversity.name} housing first, keep a purpose-built student room as the backup, and use Airbnb or Agoda only as an arrival buffer.`,
-      risks: [
-        "London housing changes quickly, so external links need manual verification before booking.",
-        "Private rentals can require deposits, guarantors, or longer leases than an exchange semester."
-      ],
-      generatedBy: "mock"
-    },
+    accommodation,
     packing,
     deadlines,
     localLife,
+    dailyLogistics: logisticsAgent.dailyLogistics,
+    qna: logisticsAgent.qna,
     sources: accommodationSearch.sources,
     generatedAt: new Date("2026-07-09T00:00:00.000Z").toISOString()
   };
@@ -70,9 +84,6 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
 export function buildLondonPlanResponse(input: ExchangeProfileInput) {
   const providerStatus = getProviderStatus();
   const plan = buildLondonPlan(input);
-
-  plan.accommodation.generatedBy =
-    providerStatus.mode === "openai" ? "hybrid" : providerStatus.mode;
 
   return {
     plan,
@@ -122,32 +133,47 @@ export function buildAtlasPlanResponse(
   const packing = buildDestinationPacking(input, country);
   const deadlines = buildDestinationDeadlines(university);
   const sources = buildDestinationSources(country, university);
+  const localLife = buildDestinationLocalLife(country, university.city);
+  const accommodation = {
+    rankedOptions: buildDestinationAccommodation(country, university, input.monthlyBudgetSgd),
+    recommendationSummary:
+      `Start with ${university.name} housing guidance, then compare verified student accommodation near ${university.city} before short-stay buffers.`,
+    risks: [
+      "This global path uses live-link accommodation discovery until each country connector is wired.",
+      "Final booking checks should confirm lease length, deposit, commute, and student eligibility."
+    ],
+    generatedBy: "mock" as const
+  };
+  const fullPartnerUniversity = {
+    ...partnerUniversity,
+    strengths: [
+      `${regionLabels[country.region]} exchange path`,
+      country.focusLabel,
+      university.partnership === "faculty-level" ? "Faculty-level route" : "University-wide route"
+    ]
+  };
+  const logisticsAgent = buildLogisticsAgentArtifacts({
+    profile,
+    partnerUniversity: fullPartnerUniversity,
+    budget,
+    accommodation,
+    packing,
+    deadlines,
+    localLife,
+    sources
+  });
 
   return {
     plan: {
       profile,
-      partnerUniversity: {
-        ...partnerUniversity,
-        strengths: [
-          `${regionLabels[country.region]} exchange path`,
-          country.focusLabel,
-          university.partnership === "faculty-level" ? "Faculty-level route" : "University-wide route"
-        ]
-      },
+      partnerUniversity: fullPartnerUniversity,
       budget,
-      accommodation: {
-        rankedOptions: buildDestinationAccommodation(country, university, input.monthlyBudgetSgd),
-        recommendationSummary:
-          `Start with ${university.name} housing guidance, then compare verified student accommodation near ${university.city} before short-stay buffers.`,
-        risks: [
-          "This global path uses live-link accommodation discovery until each country connector is wired.",
-          "Final booking checks should confirm lease length, deposit, commute, and student eligibility."
-        ],
-        generatedBy: providerStatus.mode === "openai" ? "hybrid" : providerStatus.mode
-      },
+      accommodation,
       packing,
       deadlines,
-      localLife: buildDestinationLocalLife(country, university.city),
+      localLife,
+      dailyLogistics: logisticsAgent.dailyLogistics,
+      qna: logisticsAgent.qna,
       sources,
       generatedAt: new Date("2026-07-09T00:00:00.000Z").toISOString()
     },
@@ -493,6 +519,15 @@ function buildDestinationSources(country: ExchangeCountry, university: ExchangeU
       fetchedAt: new Date("2026-07-09T00:00:00.000Z").toISOString(),
       snippet: "Search link retained so judges can see the path is ready for live accommodation connectors.",
       confidence: "medium" as const
+    },
+    {
+      id: `src-${slugify(country.id)}-arrival-buffer`,
+      title: `${university.city} short-stay arrival buffer`,
+      url: `https://www.airbnb.com/s/${encodeURIComponent(university.city)}/homes`,
+      provider: "Airbnb live-link search",
+      fetchedAt: new Date("2026-07-09T00:00:00.000Z").toISOString(),
+      snippet: "Short-stay link kept as a buffer path only; availability, price, and lease suitability need manual verification.",
+      confidence: "low" as const
     }
   ];
 }

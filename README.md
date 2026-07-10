@@ -36,6 +36,7 @@ For the hackathon demo, London is the full-depth path. Other regions are intenti
 - Smart packing checklist.
 - Deadline plan for housing, documents, packing, and travel.
 - Local life guidance for groceries, food areas, transport, weekend ideas, and communities.
+- No-key logistics agent layer that generates arrival tasks, week-one tasks, ongoing routines, parent reassurance, and structured Q&A for every selected partner university.
 - Source visibility layer using `SourceRef`.
 - Provider status endpoint showing mock, hybrid, or OpenAI-ready modes.
 - Remotion demo video starter.
@@ -222,6 +223,7 @@ Notion project hub:
 
 - [Atlas Exchange - Hackathon Project Hub](https://app.notion.com/p/398b29e7045e813783a0fd6af57df38e)
 - [Features 4-6 Integration Plan](https://app.notion.com/p/399b29e7045e81a78ca3ea003b9af4d4)
+- [Features 4-6 Logistics Agent Project](https://app.notion.com/p/399b29e7045e81e7a841dd90a8799235)
 
 ## Current Limitations
 
