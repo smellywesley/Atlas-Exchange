@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:images": "node --test tests/university-image-search.test.mjs",
     "video:studio": "remotion studio video/index.ts",
     "video:render": "remotion render video/index.ts AtlasExchangeDemo public/renders/atlas-exchange-demo.mp4"
   },

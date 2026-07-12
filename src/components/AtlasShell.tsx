@@ -22,6 +22,11 @@ import {
 import dynamic from "next/dynamic";
 import { regions, londonPartners } from "@/lib/demo-data";
 import {
+  buildUniversitySummaryTitles,
+  imageMatchesUniversityIdentity,
+  isInstitutionPhotoUrl
+} from "@/lib/university-image-search";
+import {
   exchangeCountries,
   getAllUniversities,
   getCampusIntelligence,
@@ -567,11 +572,14 @@ function UniversityVisual({
 
 function useUniversityIdentityImage(university: ExchangeUniversity) {
   const identityTitle = getUniversityIdentityTitle(university);
-  const [imageUrl, setImageUrl] = useState<string | null>(() => identityImageCache.get(identityTitle) ?? null);
+  const cacheKey = `${university.name}::${identityTitle}`;
+  const [imageUrl, setImageUrl] = useState<string | null>(() => identityImageCache.get(cacheKey) ?? null);
+  const universityName = university.name;
+  const universityCity = university.city;
 
   useEffect(() => {
     let isMounted = true;
-    const cached = identityImageCache.get(identityTitle);
+    const cached = identityImageCache.get(cacheKey);
 
     if (cached !== undefined) {
       setImageUrl(cached);
@@ -581,39 +589,23 @@ function useUniversityIdentityImage(university: ExchangeUniversity) {
     }
 
     const controller = new AbortController();
-    const endpoint = new URL("https://commons.wikimedia.org/w/api.php");
-    endpoint.search = new URLSearchParams({
-      action: "query",
-      format: "json",
-      origin: "*",
-      generator: "search",
-      gsrnamespace: "6",
-      gsrlimit: "12",
-      gsrsearch: `${identityTitle} campus building`,
-      prop: "imageinfo",
-      iiprop: "url|mime",
-      iiurlwidth: "960"
-    }).toString();
 
-    fetch(endpoint.toString(), { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: CommonsSearchResponse | null) => {
-        const pages = Object.values(payload?.query?.pages ?? {});
-        const resolvedImage =
-          pages
-            .map((page) => ({
-              title: page.title,
-              image: page.imageinfo?.[0]
-            }))
-            .find(({ title, image }) => image?.thumburl && isCampusPhotoCandidate(title, image))?.image
-            ?.thumburl ?? null;
-        identityImageCache.set(identityTitle, resolvedImage);
+    resolveCommonsCampusImage(
+      {
+        name: universityName,
+        city: universityCity,
+        identityTitle
+      },
+      controller.signal
+    )
+      .then((resolvedImage) => {
+        identityImageCache.set(cacheKey, resolvedImage);
         if (isMounted) {
           setImageUrl(resolvedImage);
         }
       })
       .catch(() => {
-        identityImageCache.set(identityTitle, null);
+        identityImageCache.set(cacheKey, null);
         if (isMounted) {
           setImageUrl(null);
         }
@@ -623,42 +615,46 @@ function useUniversityIdentityImage(university: ExchangeUniversity) {
       isMounted = false;
       controller.abort();
     };
-  }, [identityTitle]);
+  }, [cacheKey, identityTitle, universityCity, universityName]);
 
   return imageUrl;
 }
 
-type CommonsSearchResponse = {
-  query?: {
-    pages?: Record<
-      string,
-      {
-        title: string;
-        imageinfo?: Array<{
-          thumburl?: string;
-          url?: string;
-          mime?: string;
-        }>;
-      }
-    >;
+async function resolveCommonsCampusImage(
+  university: Pick<ExchangeUniversity, "name" | "city" | "identityTitle">,
+  signal: AbortSignal
+): Promise<string | null> {
+  for (const title of buildUniversitySummaryTitles(university)) {
+    const endpoint = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+    const response = await fetch(endpoint, { signal });
+    if (!response.ok) {
+      continue;
+    }
+
+    const payload = (await response.json()) as WikipediaSummaryResponse;
+    const imageUrl = payload.thumbnail?.source ?? payload.originalimage?.source;
+
+    if (
+      imageUrl &&
+      isInstitutionPhotoUrl(imageUrl) &&
+      imageMatchesUniversityIdentity(university, payload.title ?? title, { thumburl: imageUrl })
+    ) {
+      return imageUrl;
+    }
+  }
+
+  return null;
+}
+
+type WikipediaSummaryResponse = {
+  title?: string;
+  thumbnail?: {
+    source?: string;
+  };
+  originalimage?: {
+    source?: string;
   };
 };
-
-function isCampusPhotoCandidate(
-  title: string,
-  image: { thumburl?: string; url?: string; mime?: string }
-) {
-  const haystack = `${title} ${image.thumburl ?? ""} ${image.url ?? ""}`.toLowerCase();
-  const blocked = ["logo", "seal", "crest", "emblem", "badge", "icon", "coat_of_arms", "coat-of-arms", ".svg"];
-  const positive = ["campus", "building", "hall", "library", "quad", "university", "college", "school"];
-
-  return (
-    Boolean(image.thumburl) &&
-    Boolean(image.mime?.startsWith("image/")) &&
-    !blocked.some((word) => haystack.includes(word)) &&
-    positive.some((word) => haystack.includes(word))
-  );
-}
 
 function CampusIntelligencePanel({
   campus,
