@@ -1,6 +1,7 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- campus fallbacks use runtime-validated external hosts. */
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { motion } from "motion/react";
 import {
   ArrowSquareOut,
@@ -30,7 +31,6 @@ import {
   exchangeCountries,
   getAllUniversities,
   getCampusIntelligence,
-  getCountriesForRegion,
   getDefaultCountryForRegion,
   getUniversityIdentityTitle
 } from "@/lib/exchange-map-data";
@@ -39,7 +39,6 @@ import type {
   ExchangePlan,
   ExchangeProfileInput,
   PlanResponse,
-  PartnerUniversity,
   ProviderStatus
 } from "@/lib/schema";
 import type { ExchangeCountry } from "@/lib/exchange-map-data";
@@ -103,26 +102,21 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     exchangeCountries.find((country) => country.id === "united-kingdom") ?? exchangeCountries[0]
   );
   const [isCountryDetailOpen, setIsCountryDetailOpen] = useState(false);
-  const [highlightedUniversityName, setHighlightedUniversityName] = useState<string | undefined>(
-    "University College London"
+  const [highlightedUniversityKey, setHighlightedUniversityKey] = useState(
+    "University College London::university-wide::"
   );
   const [universityQuery, setUniversityQuery] = useState("");
-  const activeCountries = useMemo(
-    () => getCountriesForRegion(activeRegion),
-    [activeRegion]
-  );
-  const activePartner = useMemo(
-    () =>
-      londonPartners.find(
-        (partner) => partner.id === plan.profile.partnerUniversityId
-      ) ?? londonPartners[0],
-    [plan.profile.partnerUniversityId]
-  );
+  const requestState = useRef<{ sequence: number; controller: AbortController | null }>({
+    sequence: 0,
+    controller: null
+  });
+  const [isPlanLoading, setIsPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState("");
   const selectedExchangeUniversity = useMemo(
     () =>
-      selectedCountry.universities.find((university) => university.name === highlightedUniversityName) ??
+      selectedCountry.universities.find((university) => universityRouteKey(university) === highlightedUniversityKey) ??
       selectedCountry.universities[0],
-    [highlightedUniversityName, selectedCountry]
+    [highlightedUniversityKey, selectedCountry]
   );
   const campusIntelligence = useMemo(
     () => getCampusIntelligence(selectedCountry, selectedExchangeUniversity),
@@ -152,62 +146,111 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       .slice(0, 8);
   }, [universityQuery]);
 
+  useEffect(() => () => requestState.current.controller?.abort(), []);
+
   function getCurrentProfileInput(): ExchangeProfileInput {
     return {
       partnerUniversityId: plan.profile.partnerUniversityId,
       countryId: selectedCountry.id,
       universityName: selectedExchangeUniversity.name,
+      universityPartnership: selectedExchangeUniversity.partnership,
       monthlyBudgetSgd: plan.profile.monthlyBudgetSgd,
       stayLengthMonths: plan.profile.stayLengthMonths,
       housingPreference: plan.profile.housingPreference,
       travelStyle: plan.profile.travelStyle,
       dietaryNeeds: plan.profile.dietaryNeeds,
-      plannedActivities: plan.profile.plannedActivities
+      plannedActivities: plan.profile.plannedActivities,
+      startDate: plan.profile.startDate || undefined,
+      endDate: plan.profile.endDate || undefined,
+      studentEmail: plan.profile.studentEmail ?? ""
     };
   }
 
   async function requestPlan(
     country: ExchangeCountry,
     university: ExchangeUniversity,
-    input: ExchangeProfileInput
+    input: ExchangeProfileInput,
+    signal: AbortSignal
   ) {
     const response = await fetch("/api/plan", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
+      signal,
       body: JSON.stringify({
         ...input,
         countryId: country.id,
-        universityName: university.name
+        universityName: university.name,
+        universityPartnership: university.partnership
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Plan request failed with ${response.status}`);
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(payload.error ?? `Plan request failed with ${response.status}`);
     }
 
     return response.json() as Promise<PlanResponse>;
   }
 
-  async function syncPlanToSelection(country: ExchangeCountry, university: ExchangeUniversity) {
+  async function runPlanRequest(country: ExchangeCountry, university: ExchangeUniversity, input: ExchangeProfileInput) {
+    const previousPlan = plan;
+    requestState.current.controller?.abort();
+    const controller = new AbortController();
+    const sequence = requestState.current.sequence + 1;
+    requestState.current = { sequence, controller };
+    setIsPlanLoading(true);
+    setPlanError("");
     try {
-      const response = await requestPlan(country, university, getCurrentProfileInput());
+      const response = await requestPlan(country, university, input, controller.signal);
+      if (requestState.current.sequence !== sequence) {
+        return;
+      }
       setPlan(response.plan);
       setProviderStatus(response.providerStatus);
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       console.error(error);
+      if (requestState.current.sequence === sequence) {
+        setPlanError(error instanceof Error ? error.message : "Plan update failed.");
+        restoreSelection(previousPlan);
+      }
+    } finally {
+      if (requestState.current.sequence === sequence) {
+        setIsPlanLoading(false);
+      }
     }
   }
 
-  async function handleProfileSubmit(input: ExchangeProfileInput) {
-    try {
-      const response = await requestPlan(selectedCountry, selectedExchangeUniversity, input);
-      setPlan(response.plan);
-      setProviderStatus(response.providerStatus);
-    } catch (error) {
-      console.error(error);
+  function restoreSelection(previousPlan: ExchangePlan) {
+    const previousCountry = exchangeCountries.find((country) => country.id === previousPlan.profile.countryId) ??
+      exchangeCountries.find((country) =>
+        country.universities.some((university) => university.name === previousPlan.partnerUniversity.name)
+      );
+    if (!previousCountry) {
+      return;
     }
+    const previousUniversity = previousCountry.universities.find((university) =>
+      university.name === previousPlan.partnerUniversity.name &&
+      (!previousPlan.profile.universityPartnership || university.partnership === previousPlan.profile.universityPartnership)
+    ) ?? previousCountry.universities.find((university) => university.name === previousPlan.partnerUniversity.name);
+    if (!previousUniversity) {
+      return;
+    }
+    setSelectedCountry(previousCountry);
+    setActiveRegion(previousCountry.region);
+    setHighlightedUniversityKey(universityRouteKey(previousUniversity));
+  }
+
+  async function syncPlanToSelection(country: ExchangeCountry, university: ExchangeUniversity) {
+    await runPlanRequest(country, university, getCurrentProfileInput());
+  }
+
+  async function handleProfileSubmit(input: ExchangeProfileInput) {
+    await runPlanRequest(selectedCountry, selectedExchangeUniversity, input);
   }
 
   function scrollToCampusIntelligence() {
@@ -219,53 +262,29 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     });
   }
 
-  async function handlePartnerSelect(partner: PartnerUniversity) {
-    const ukCountry = exchangeCountries.find((country) => country.id === "united-kingdom") ?? selectedCountry;
-    const ukUniversity =
-      ukCountry.universities.find((university) => university.name === partner.name) ??
-      ukCountry.universities[0];
-
-    const input = {
-      partnerUniversityId: partner.id,
-      monthlyBudgetSgd: plan.profile.monthlyBudgetSgd,
-      stayLengthMonths: plan.profile.stayLengthMonths,
-      housingPreference: plan.profile.housingPreference,
-      travelStyle: plan.profile.travelStyle,
-      dietaryNeeds: plan.profile.dietaryNeeds,
-      plannedActivities: plan.profile.plannedActivities
-    };
-
-    setActiveRegion("uk");
-    setSelectedCountry(ukCountry);
-    setIsCountryDetailOpen(true);
-    setHighlightedUniversityName(partner.name);
-    try {
-      const response = await requestPlan(ukCountry, ukUniversity, input);
-      setPlan(response.plan);
-      setProviderStatus(response.providerStatus);
-    } catch (error) {
-      console.error(error);
-    }
-    scrollToCampusIntelligence();
-  }
-
   function handleRegionSelect(region: DestinationRegion) {
     const defaultCountry = getDefaultCountryForRegion(region);
     setActiveRegion(region);
     setSelectedCountry(defaultCountry);
     setIsCountryDetailOpen(false);
-    setHighlightedUniversityName(defaultCountry.universities[0]?.name);
+    setHighlightedUniversityKey(universityRouteKey(defaultCountry.universities[0]));
     void syncPlanToSelection(defaultCountry, defaultCountry.universities[0]);
   }
 
-  function handleCountrySelect(country: ExchangeCountry, universityName?: string, shouldScroll = false) {
+  function handleCountrySelect(
+    country: ExchangeCountry,
+    universityName?: string,
+    shouldScroll = false,
+    routeKey?: string
+  ) {
     const selectedUniversity =
+      country.universities.find((university) => universityRouteKey(university) === routeKey) ??
       country.universities.find((university) => university.name === universityName) ??
       country.universities[0];
     setSelectedCountry(country);
     setActiveRegion(country.region);
     setIsCountryDetailOpen(true);
-    setHighlightedUniversityName(selectedUniversity.name);
+    setHighlightedUniversityKey(universityRouteKey(selectedUniversity));
     void syncPlanToSelection(country, selectedUniversity);
     if (shouldScroll) {
       scrollToCampusIntelligence();
@@ -274,7 +293,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
 
   function handleUniversitySelect(result: SearchableExchangeUniversity) {
     setUniversityQuery(result.name);
-    handleCountrySelect(result.country, result.name, true);
+    handleCountrySelect(result.country, result.name, true, universityRouteKey(result));
   }
 
   return (
@@ -295,7 +314,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       <motion.section id="top" className="hero-section" {...sectionMotion}>
         <div className="hero-backdrop" />
         <div className="hero-copy">
-          <p className="hero-kicker">London golden path</p>
+          <p className="hero-kicker">{plan.profile.destinationCity} exchange path</p>
           <h1>Plan the semester before it starts.</h1>
           <p>
             Atlas Exchange turns housing, budgets, packing, and deadlines into one departure plan with visible sources.
@@ -309,7 +328,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             </a>
           </div>
         </div>
-        <div className="hero-card" aria-label="London plan preview">
+        <div className="hero-card" aria-label={`${plan.profile.destinationCity} plan preview`}>
           <div className="hero-card-image" />
           <div className="hero-card-body">
             <span>Ready path</span>
@@ -333,7 +352,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             countries={exchangeCountries}
             selectedCountry={selectedCountry}
             isDetailOpen={isCountryDetailOpen}
-            highlightedUniversityName={highlightedUniversityName}
+            highlightedUniversityName={selectedExchangeUniversity.name}
             onCountrySelect={handleCountrySelect}
           />
           <div className="region-list">
@@ -341,6 +360,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
               <button
                 key={region.id}
                 className={`region-tile ${region.id === activeRegion ? "active" : ""}`}
+                aria-pressed={region.id === activeRegion}
                 onClick={() => handleRegionSelect(region.id)}
               >
                 <span>{region.eyebrow}</span>
@@ -402,37 +422,15 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
               )}
             </div>
           </div>
-          {selectedCountry.id === "united-kingdom"
-            ? londonPartners.map((partner) => (
-                <button
-                  key={partner.id}
-                  type="button"
-                  className={`university-card ${partner.id === activePartner.id ? "active" : ""}`}
-                  onClick={() => handlePartnerSelect(partner)}
-                >
-                  <UniversityVisual
-                    country={selectedCountry}
-                    university={{
-                      name: partner.name,
-                      city: partner.city,
-                      partnership: "university-wide"
-                    }}
-                    subtitle={partner.campusArea}
-                    index={londonPartners.findIndex((item) => item.id === partner.id)}
-                  />
-                  <div className="university-body">
-                    <span>{partner.campusArea}</span>
-                    <h3>{partner.name}</h3>
-                    <p>{partner.strengths.join(", ")}</p>
-                  </div>
-                </button>
-              ))
-            : selectedCountry.universities.slice(0, 8).map((university, index) => (
+          {selectedCountry.universities.map((university, index) => {
+            const londonPartner = londonPartners.find((partner) => partner.name === university.name);
+            return (
                 <button
                   key={`${university.name}-${university.city}-${university.partnership}`}
                   type="button"
-                  className={`university-card ${university.name === highlightedUniversityName ? "active" : ""}`}
-                  onClick={() => handleCountrySelect(selectedCountry, university.name, true)}
+                  className={`university-card ${universityRouteKey(university) === highlightedUniversityKey ? "active" : ""}`}
+                  aria-pressed={universityRouteKey(university) === highlightedUniversityKey}
+                  onClick={() => handleCountrySelect(selectedCountry, university.name, true, universityRouteKey(university))}
                 >
                   <UniversityVisual
                     country={selectedCountry}
@@ -441,16 +439,19 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                     index={index}
                   />
                   <div className="university-body">
-                    <span>{university.city} / {university.partnership}</span>
+                    <span>{londonPartner?.campusArea ?? university.city} / {university.partnership}</span>
                     <h3>{university.name}</h3>
                     <p>
-                      {university.faculties
+                      {londonPartner
+                        ? londonPartner.strengths.join(", ")
+                        : university.faculties
                         ? `Faculty route: ${university.faculties.join(", ")}`
                         : selectedCountry.logisticsAngle}
                     </p>
                   </div>
                 </button>
-              ))}
+              );
+          })}
         </div>
         <CampusIntelligencePanel
           campus={campusIntelligence}
@@ -468,7 +469,10 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         </div>
         <div className="planner-grid">
           <IntakePanel plan={plan} onSubmit={handleProfileSubmit} />
-          <PlanDashboard plan={plan} providerStatus={providerStatus} />
+          <div className="planner-output">
+            {planError && <p className="plan-error" role="alert">{planError}</p>}
+            <PlanDashboard plan={plan} providerStatus={providerStatus} isPlanLoading={isPlanLoading} />
+          </div>
         </div>
       </motion.section>
 
@@ -486,7 +490,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         <div>
           <Package size={28} weight="duotone" />
           <strong>Packing</strong>
-          <span>Weather and room aware</span>
+          <span>Destination, room, and activity aware</span>
         </div>
         <div>
           <CalendarCheck size={28} weight="duotone" />
@@ -517,7 +521,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       <footer className="site-footer">
         <Compass size={24} weight="duotone" />
         <span>Atlas Exchange</span>
-        <p>London first. Global exchange paths next.</p>
+        <p>{plan.profile.destinationCity} plan selected. Global partner paths connected.</p>
       </footer>
     </main>
   );
@@ -536,6 +540,17 @@ function UniversityVisual({
 }) {
   const identityImage = useUniversityIdentityImage(university);
   const identityTitle = getUniversityIdentityTitle(university);
+  const localImage = `/images/universities/${universityImageSlug(university.name)}.webp`;
+  const [localImageFailed, setLocalImageFailed] = useState(false);
+  const [identityImageFailed, setIdentityImageFailed] = useState(false);
+  const visualSource = localImageFailed
+    ? identityImageFailed ? null : identityImage
+    : localImage;
+
+  useEffect(() => {
+    setLocalImageFailed(false);
+    setIdentityImageFailed(false);
+  }, [localImage]);
 
   return (
     <div
@@ -543,12 +558,19 @@ function UniversityVisual({
       style={{ "--country-accent": country.accent } as CSSProperties}
       aria-hidden="true"
     >
-      {identityImage ? (
+      {visualSource ? (
         <img
           className="university-identity-photo"
-          src={identityImage}
+          src={visualSource}
           alt=""
           loading="lazy"
+          onError={() => {
+            if (!localImageFailed) {
+              setLocalImageFailed(true);
+            } else {
+              setIdentityImageFailed(true);
+            }
+          }}
         />
       ) : (
         <div className="university-identity-fallback">
@@ -568,6 +590,20 @@ function UniversityVisual({
       <p>{identityTitle}</p>
     </div>
   );
+}
+
+function universityImageSlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function universityRouteKey(university: ExchangeUniversity | undefined) {
+  if (!university) {
+    return "";
+  }
+  return [university.name, university.partnership, university.faculties?.join(",") ?? ""].join("::");
 }
 
 function useUniversityIdentityImage(university: ExchangeUniversity) {
@@ -604,7 +640,10 @@ function useUniversityIdentityImage(university: ExchangeUniversity) {
           setImageUrl(resolvedImage);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
         identityImageCache.set(cacheKey, null);
         if (isMounted) {
           setImageUrl(null);

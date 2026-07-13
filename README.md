@@ -29,8 +29,8 @@ For the hackathon demo, London is the full-depth path. Other regions are intenti
 - Direct Three.js interactive exchange globe with drag rotation, wheel zoom, and clickable country markers.
 - Country-specific templates for city campuses, mountain routes, coastal routes, heritage routes, US campus corridors, and Pacific routes.
 - Partnership data surfaces for UK, South Korea, Japan, China, Hong Kong, Taiwan, Australia, New Zealand, Switzerland, Netherlands, France, Germany, USA East/West, Canada, Mexico, and Brazil.
-- London partner university cards for UCL, King's College London, Imperial, and LSE.
-- Student intake form for budget, stay length, housing preference, and travel style.
+- Searchable partner-university cards across every included country and partnership route.
+- Student intake for dates, budget, stay length, housing, dietary needs, planned activities, travel style, and report email.
 - Ranked accommodation cards with official and platform links.
 - Monthly budget breakdown in SGD.
 - Smart packing checklist.
@@ -39,6 +39,8 @@ For the hackathon demo, London is the full-depth path. Other regions are intenti
 - No-key logistics agent layer that generates arrival tasks, week-one tasks, ongoing routines, parent reassurance, and structured Q&A for every selected partner university.
 - Source visibility layer using `SourceRef`.
 - Provider status endpoint showing mock, hybrid, or OpenAI-ready modes.
+- Evidence-linked PDF report generation and controlled, allowlisted student email delivery.
+- Local campus-image override folder with a 92-school filename checklist.
 - Remotion demo video starter.
 
 ## Owned Feature Layer
@@ -68,6 +70,8 @@ See [docs/FEATURE_4_6_INTEGRATION_PLAN.md](docs/FEATURE_4_6_INTEGRATION_PLAN.md)
 - React 18
 - TypeScript
 - Zod
+- pdf-lib
+- React Email and Resend
 - Phosphor Icons
 - Three.js
 - Motion for scroll and section transitions
@@ -84,19 +88,19 @@ npm install
 Start the development server:
 
 ```bash
-npm run dev -- -p 3001
+npm run dev -- --port 3003
 ```
 
 Open:
 
 ```text
-http://localhost:3001
+http://localhost:3003
 ```
 
 If `localhost` behaves oddly in a browser, try:
 
 ```text
-http://127.0.0.1:3001
+http://127.0.0.1:3003
 ```
 
 ## Useful Commands
@@ -111,6 +115,14 @@ Production build:
 
 ```bash
 npm run build
+```
+
+Lint and integrity tests:
+
+```bash
+npm run lint
+npm run test:plan
+npm run test:images
 ```
 
 Open Remotion Studio:
@@ -161,6 +173,14 @@ Returns ranked accommodation options and source references.
 
 Current implementation uses official university housing links and live platform search links. It does not scrape full Airbnb, Agoda, or Trip listing internals yet.
 
+### `POST /api/report/pdf`
+
+Regenerates a validated plan server-side and returns a multi-page PDF with clickable evidence links.
+
+### `POST /api/report/email`
+
+Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, and an exact `REPORT_EMAIL_ALLOWLIST`. Without all three, the route remains disabled and the UI falls back to PDF download.
+
 ## Architecture
 
 ```text
@@ -173,6 +193,8 @@ Next.js App Router
   | /api/status
   | /api/plan
   | /api/search/accommodation
+  | /api/report/pdf
+  | /api/report/email
   v
 Plan Engine
   |
@@ -217,7 +239,10 @@ Atlas Exchange is designed to be demo-safe before API credits arrive:
 - [docs/API_COSTS.md](docs/API_COSTS.md): cost-control notes.
 - [docs/DEMO_VIDEO_SCRIPT.md](docs/DEMO_VIDEO_SCRIPT.md): video demo narrative.
 - [docs/TEAM_HANDOFF.md](docs/TEAM_HANDOFF.md): teammate handoff notes.
+- [docs/FEATURE_4_6_PRODUCT_AUDIT.md](docs/FEATURE_4_6_PRODUCT_AUDIT.md): rigorous readiness audit and source-integrity findings.
 - [docs/NOTION_PROJECT_HUB.md](docs/NOTION_PROJECT_HUB.md): local copy of the Notion project hub.
+
+University campus images belong in [public/images/universities](public/images/universities). Follow that folder's README exactly so each HUD card resolves the correct file without guessing.
 
 Notion project hub:
 
@@ -227,10 +252,10 @@ Notion project hub:
 
 ## Current Limitations
 
-- London is the only full-depth demo path.
-- Non-London countries currently show partnership discovery and template-specific planning surfaces, but do not yet generate full destination-specific accommodation plans.
+- London has the deepest seeded demo content. Global paths generate synchronized plans but deliberately leave unverified market prices, commute times, fit scores, and exact deadlines blank.
 - Accommodation search is live-link based, not full listing extraction.
 - LLM synthesis is planned but not active by default.
+- Email allowlisting is appropriate for a controlled demo, not a substitute for authenticated or verified student ownership in production.
 - No user accounts, persistence, production auth, or payment.
 - Visa and module mapping are integration contracts, not complete production workflows.
 

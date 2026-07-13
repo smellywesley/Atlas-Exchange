@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowSquareOut,
   CalendarCheck,
+  DownloadSimple,
+  EnvelopeSimple,
   HouseLine,
   ListChecks,
   MapTrifold,
@@ -16,13 +18,27 @@ import type { ProviderStatus } from "@/lib/schema";
 type PlanDashboardProps = {
   plan: ExchangePlan;
   providerStatus: ProviderStatus;
+  isPlanLoading?: boolean;
 };
 
 const tabs = ["Overview", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life", "Daily Plan", "Q&A"] as const;
 
-export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
+export function PlanDashboard({ plan, providerStatus, isPlanLoading = false }: PlanDashboardProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Accommodation");
   const activeTabId = tabId(activeTab);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    setActiveTab(tabs[nextIndex]);
+    tabRefs.current[nextIndex]?.focus();
+  }
 
   return (
     <section className="dashboard-panel" aria-label="Exchange plan dashboard">
@@ -38,9 +54,10 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
       </div>
 
       <div className="tab-list" role="tablist" aria-label="Plan sections">
-        {tabs.map((tab) => (
+        {tabs.map((tab, index) => (
           <button
             key={tab}
+            ref={(element) => { tabRefs.current[index] = element; }}
             id={`plan-tab-${tabId(tab)}`}
             type="button"
             role="tab"
@@ -49,6 +66,7 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
             tabIndex={tab === activeTab ? 0 : -1}
             className={tab === activeTab ? "active" : ""}
             onClick={() => setActiveTab(tab)}
+            onKeyDown={(event) => handleTabKeyDown(event, index)}
           >
             {tab}
           </button>
@@ -72,17 +90,19 @@ export function PlanDashboard({ plan, providerStatus }: PlanDashboardProps) {
       </div>
 
       <ProviderBanner providerStatus={providerStatus} />
+      <ReportDelivery plan={plan} isPlanLoading={isPlanLoading} />
     </section>
   );
 }
 
 function Overview({ plan }: { plan: ExchangePlan }) {
   const topHousingFit = plan.accommodation.rankedOptions[0]?.fitScore;
+  const budgetLabel = plan.budget.basis === "planning-envelope" ? "Monthly envelope" : "Monthly estimate";
 
   return (
     <div className="overview-grid">
       <Metric icon={<HouseLine size={24} />} label="Top housing fit" value={topHousingFit !== undefined ? `${topHousingFit}/100` : "Needs review"} />
-      <Metric icon={<Wallet size={24} />} label="Monthly estimate" value={`SGD ${plan.budget.monthlyEstimateSgd.toLocaleString()}`} />
+      <Metric icon={<Wallet size={24} />} label={budgetLabel} value={`SGD ${plan.budget.monthlyEstimateSgd.toLocaleString()}`} />
       <Metric icon={<CalendarCheck size={24} />} label="High urgency tasks" value={`${plan.deadlines.filter((item) => item.urgency === "high").length}`} />
       <Metric icon={<ListChecks size={24} />} label="Source cards" value={`${plan.sources.length}`} />
       <div className="recommendation-card">
@@ -117,9 +137,9 @@ function Accommodation({ plan }: { plan: ExchangePlan }) {
             <h4>{option.title}</h4>
             <p>{option.rankingReasons[0]}</p>
             <div className="listing-meta">
-              <strong>Fit {option.fitScore}</strong>
-              <strong>SGD {option.estimatedMonthlyCostSgd?.toLocaleString() ?? "Check source"}</strong>
-              <strong>{option.commuteMinutes ?? "?"} min</strong>
+              <strong>{option.fitScore !== undefined ? `Fit ${option.fitScore}` : "Fit needs review"}</strong>
+              <strong>{option.estimatedMonthlyCostSgd !== undefined ? `SGD ${option.estimatedMonthlyCostSgd.toLocaleString()}` : "Cost: check source"}</strong>
+              <strong>{option.commuteMinutes !== undefined ? `${option.commuteMinutes} min` : "Commute: check route"}</strong>
             </div>
           </div>
           <a href={option.url} target="_blank" rel="noreferrer" className="icon-link" aria-label={`Open ${option.title}`}>
@@ -134,6 +154,10 @@ function Accommodation({ plan }: { plan: ExchangePlan }) {
 function Budget({ plan }: { plan: ExchangePlan }) {
   return (
     <div className="budget-grid">
+      <div className="budget-basis">
+        <strong>{plan.budget.basis.replace(/-/g, " ")}</strong>
+        <span>{plan.budget.confidence} confidence</span>
+      </div>
       {Object.entries(plan.budget.categories).map(([key, value]) => (
         <div key={key} className="budget-row">
           <span>{key.replace(/([A-Z])/g, " $1")}</span>
@@ -189,19 +213,31 @@ function Deadlines({ plan }: { plan: ExchangePlan }) {
 
 function LocalLife({ plan }: { plan: ExchangePlan }) {
   return (
-    <div className="local-grid">
-      <MapTrifold size={24} />
-      <div>
-        <h4>Groceries</h4>
-        <p>{plan.localLife.groceries.join(", ")}</p>
+    <div className="local-life-stack">
+      <div className="local-grid">
+        <MapTrifold size={24} />
+        <div>
+          <h4>Groceries</h4>
+          <p>{plan.localLife.groceries.join(", ")}</p>
+        </div>
+        <div>
+          <h4>Food areas</h4>
+          <p>{plan.localLife.foodAreas.join(", ")}</p>
+        </div>
+        <div>
+          <h4>Weekend ideas</h4>
+          <p>{plan.localLife.weekendIdeas.join(", ")}</p>
+        </div>
       </div>
-      <div>
-        <h4>Food areas</h4>
-        <p>{plan.localLife.foodAreas.join(", ")}</p>
-      </div>
-      <div>
-        <h4>Weekend ideas</h4>
-        <p>{plan.localLife.weekendIdeas.join(", ")}</p>
+      <div className="local-place-grid">
+        {plan.localLife.places.map((place) => (
+          <a key={place.id} href={place.mapsUrl} target="_blank" rel="noreferrer" className="local-place-link">
+            <span>{place.category} / {place.status}</span>
+            <strong>{place.title}</strong>
+            <small>{place.whyRecommended}</small>
+            <ArrowSquareOut size={18} />
+          </a>
+        ))}
       </div>
     </div>
   );
@@ -295,4 +331,151 @@ function ProviderBanner({ providerStatus }: { providerStatus: ProviderStatus }) 
       )}
     </aside>
   );
+}
+
+function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoading: boolean }) {
+  const [status, setStatus] = useState<string>("");
+  const [isWorking, setIsWorking] = useState(false);
+  const studentEmail = plan.profile.studentEmail?.trim() ?? "";
+  const activeReportId = useRef(plan.generatedAt);
+  const requestController = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    activeReportId.current = plan.generatedAt;
+    requestController.current?.abort();
+    setIsWorking(false);
+    setStatus("");
+  }, [plan.generatedAt]);
+
+  async function downloadPdf() {
+    const reportId = plan.generatedAt;
+    const controller = new AbortController();
+    requestController.current = controller;
+    setIsWorking(true);
+    setStatus("Generating PDF report...");
+    try {
+      const response = await fetch("/api/report/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({ profile: plan.profile })
+      });
+      if (!response.ok) {
+        const payload = await readJsonResponse(response);
+        throw new Error(payload.error ?? "PDF generation failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${slugify(plan.partnerUniversity.name)}-exchange-plan.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      if (activeReportId.current === reportId) {
+        setStatus("PDF downloaded. Review it before sending.");
+      }
+    } catch (error) {
+      if (activeReportId.current === reportId && !isAbortError(error)) {
+        setStatus(error instanceof Error ? error.message : "PDF generation failed");
+      }
+    } finally {
+      if (activeReportId.current === reportId) {
+        setIsWorking(false);
+      }
+    }
+  }
+
+  async function emailReport() {
+    if (!studentEmail) {
+      setStatus("Add the student email in the intake form and regenerate the plan first.");
+      return;
+    }
+
+    if (!window.confirm(`Send the current ${plan.partnerUniversity.name} report to ${studentEmail}?`)) {
+      return;
+    }
+
+    const reportId = plan.generatedAt;
+    const controller = new AbortController();
+    requestController.current = controller;
+    setIsWorking(true);
+    setStatus("Sending report...");
+    try {
+      const response = await fetch("/api/report/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          profile: plan.profile
+        })
+      });
+      const payload = await readJsonResponse(response);
+      if (!response.ok || !payload.sent) {
+        throw new Error(payload.error ?? "Email delivery failed");
+      }
+      if (activeReportId.current === reportId) {
+        setStatus(`Report sent to ${studentEmail}.`);
+      }
+    } catch (error) {
+      if (activeReportId.current === reportId && !isAbortError(error)) {
+        setStatus(error instanceof Error ? error.message : "Email delivery failed");
+      }
+    } finally {
+      if (activeReportId.current === reportId) {
+        setIsWorking(false);
+      }
+    }
+  }
+
+  return (
+    <section className="report-delivery" aria-label="Report delivery">
+      <div>
+        <strong>Take the plan with you</strong>
+        <span>Download the evidence-linked PDF. Email works only for student addresses enabled in the demo allowlist.</span>
+      </div>
+      <div className="report-actions">
+        <button type="button" onClick={downloadPdf} disabled={isWorking || isPlanLoading}>
+          <DownloadSimple size={20} />
+          Download PDF
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={emailReport}
+          disabled={isWorking || isPlanLoading || !studentEmail}
+          aria-describedby="email-report-help"
+        >
+          <EnvelopeSimple size={20} />
+          Email report
+        </button>
+      </div>
+      <p id="email-report-help" aria-live="polite">
+        {status || (isPlanLoading
+          ? "Updating the selected university before report delivery."
+          : studentEmail
+            ? `Ready for ${studentEmail}.`
+            : "Add a student email to enable delivery.")}
+      </p>
+    </section>
+  );
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text) {
+    return {} as { error?: string; sent?: boolean };
+  }
+  try {
+    return JSON.parse(text) as { error?: string; sent?: boolean };
+  } catch {
+    return { error: `Report service returned ${response.status}.` };
+  }
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }

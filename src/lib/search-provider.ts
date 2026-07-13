@@ -6,7 +6,7 @@ type SearchInput = {
   partnerUniversity: PartnerUniversity;
 };
 
-const fetchedAt = new Date("2026-07-09T00:00:00.000Z").toISOString();
+const fetchedAt = new Date().toISOString();
 
 function searchUrl(base: string, query: string) {
   return `${base}${encodeURIComponent(query)}`;
@@ -58,21 +58,18 @@ export function searchLondonAccommodation(input: SearchInput): {
     }
   ];
 
-  const budgetFit = input.monthlyBudgetSgd >= 2500 ? 92 : 88;
-  const preferenceBoost = input.housingPreference === "school" ? 6 : 0;
-
   const options: AccommodationOption[] = [
     {
-      id: "ucl-halls",
+      id: `${input.partnerUniversity.id}-halls`,
       title: `Apply for ${input.partnerUniversity.name} housing first`,
       provider: "school",
       url: sources[0].url,
       estimatedMonthlyCostSgd: 1850,
       commuteMinutes: 12,
-      fitScore: Math.min(96, budgetFit + preferenceBoost),
+      fitScore: undefined,
       rankingReasons: [
         "Lowest uncertainty because the housing path is university-run.",
-        "Short commute to Bloomsbury reduces transport and late-night safety risk.",
+        `A campus-area search around ${input.partnerUniversity.campusArea} reduces transport uncertainty.`,
         "Best fit if application deadlines are still open."
       ],
       tradeoffs: [
@@ -80,7 +77,7 @@ export function searchLondonAccommodation(input: SearchInput): {
         "Room type choice may be limited for exchange students."
       ],
       sourceRefIds: [sources[0].id],
-      status: "live-link"
+      status: "seeded-fallback"
     },
     {
       id: `unite-${input.partnerUniversity.id}`,
@@ -89,10 +86,10 @@ export function searchLondonAccommodation(input: SearchInput): {
       url: sources[1].url,
       estimatedMonthlyCostSgd: 2250,
       commuteMinutes: 20,
-      fitScore: 84,
+      fitScore: undefined,
       rankingReasons: [
         "Student-specific accommodation usually has clearer utilities and contract terms.",
-        "Commute remains realistic for UCL, King's, and LSE.",
+        `The search is scoped to ${input.partnerUniversity.campusArea}; verify the exact route before booking.`,
         "Good fallback if university halls are full."
       ],
       tradeoffs: [
@@ -100,7 +97,7 @@ export function searchLondonAccommodation(input: SearchInput): {
         "Contract dates may not match exchange dates perfectly."
       ],
       sourceRefIds: ["src-unite-london"],
-      status: "live-link"
+      status: "seeded-fallback"
     },
     {
       id: "airbnb-shared",
@@ -109,7 +106,7 @@ export function searchLondonAccommodation(input: SearchInput): {
       url: sources[2].url,
       estimatedMonthlyCostSgd: 2600,
       commuteMinutes: 28,
-      fitScore: 73,
+      fitScore: undefined,
       rankingReasons: [
         "Flexible dates help if the exchange term does not match academic housing.",
         "Useful for short buffer stays before permanent housing begins."
@@ -119,7 +116,7 @@ export function searchLondonAccommodation(input: SearchInput): {
         "Service fees can move the real monthly cost above budget."
       ],
       sourceRefIds: [sources[2].id],
-      status: "live-link"
+      status: "seeded-fallback"
     },
     {
       id: "agoda-buffer",
@@ -128,7 +125,7 @@ export function searchLondonAccommodation(input: SearchInput): {
       url: sources[3].url,
       estimatedMonthlyCostSgd: 3600,
       commuteMinutes: 18,
-      fitScore: 61,
+      fitScore: undefined,
       rankingReasons: [
         "Strong emergency option if permanent housing is not confirmed before departure.",
         "Good for the first arrival window while viewing flats."
@@ -138,7 +135,7 @@ export function searchLondonAccommodation(input: SearchInput): {
         "Should be treated as a buffer, not the primary housing path."
       ],
       sourceRefIds: ["src-agoda-london"],
-      status: "live-link"
+      status: "seeded-fallback"
     }
   ];
 
@@ -146,7 +143,7 @@ export function searchLondonAccommodation(input: SearchInput): {
     options,
     sources,
     warnings: [
-      "Search provider is currently live-link mode. It returns source URLs and ranked planning guidance, not scraped listing internals."
+      "Search URLs are live. Prices and commute times are seeded planning estimates and must be verified on the linked provider before booking."
     ]
   };
 }

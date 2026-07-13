@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { exchangeCountries } from "@/lib/exchange-map-data";
-import { buildAtlasPlanResponse, buildLondonPlanResponse } from "@/lib/plan-engine";
+import { buildPlanResponseForInput, DestinationResolutionError } from "@/lib/plan-engine";
 import { exchangeProfileInputSchema } from "@/lib/schema";
+import { readBoundedJson } from "@/lib/request-guard";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = exchangeProfileInputSchema.safeParse(body);
+  const bodyResult = await readBoundedJson(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+  }
+  const parsed = exchangeProfileInputSchema.safeParse(bodyResult.value);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -17,24 +20,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const country =
-    exchangeCountries.find((item) => item.id === parsed.data.countryId) ??
-    exchangeCountries.find((item) =>
-      item.universities.some((university) => university.name === parsed.data.universityName)
-    );
-
-  if (country) {
-    const university =
-      country.universities.find((item) => item.name === parsed.data.universityName) ??
-      country.universities.find((item) => item.name === parsed.data.partnerUniversityId) ??
-      country.universities[0];
-
-    const response = buildAtlasPlanResponse(country, university, parsed.data);
+  try {
+    const response = buildPlanResponseForInput(parsed.data);
 
     return NextResponse.json(response);
+  } catch (error) {
+    if (error instanceof DestinationResolutionError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+    throw error;
   }
-
-  const response = buildLondonPlanResponse(parsed.data);
-
-  return NextResponse.json(response);
 }

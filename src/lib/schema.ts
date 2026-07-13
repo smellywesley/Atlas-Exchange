@@ -31,15 +31,19 @@ export type PartnerUniversity = {
 };
 
 export const exchangeProfileInputSchema = z.object({
-  partnerUniversityId: z.string().optional(),
-  countryId: z.string().optional(),
-  universityName: z.string().optional(),
+  partnerUniversityId: z.string().max(120).optional(),
+  countryId: z.string().max(120).optional(),
+  universityName: z.string().max(240).optional(),
+  universityPartnership: z.enum(["university-wide", "faculty-level"]).optional(),
   monthlyBudgetSgd: z.number().min(800).max(12000),
   stayLengthMonths: z.number().min(1).max(12),
   housingPreference: z.enum(["school", "private", "shared", "solo", "hotel"]),
   travelStyle: z.enum(["budget", "balanced", "comfort"]),
-  dietaryNeeds: z.array(z.string()).default([]),
-  plannedActivities: z.array(z.string()).default([])
+  dietaryNeeds: z.array(z.string().max(120)).max(12).default([]),
+  plannedActivities: z.array(z.string().max(120)).max(12).default([]),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  studentEmail: z.string().email().max(254).optional().or(z.literal(""))
 });
 
 export type ExchangeProfileInput = z.infer<typeof exchangeProfileInputSchema>;
@@ -63,7 +67,7 @@ export type AccommodationOption = {
   url: string;
   estimatedMonthlyCostSgd?: number;
   commuteMinutes?: number;
-  fitScore: number;
+  fitScore?: number;
   rankingReasons: string[];
   tradeoffs: string[];
   sourceRefIds: string[];
@@ -79,6 +83,7 @@ export type AccommodationPlan = {
 
 export type BudgetPlan = {
   monthlyEstimateSgd: number;
+  basis: "planning-envelope" | "seeded-estimate" | "live-estimate";
   categories: {
     rent: number;
     food: number;
@@ -126,6 +131,25 @@ export type LocalLifePlan = {
   transportNotes: string[];
   weekendIdeas: string[];
   communityIdeas: string[];
+  places: LocalPlaceRecommendation[];
+};
+
+export type LocalPlaceRecommendation = {
+  id: string;
+  title: string;
+  category:
+    | "groceries"
+    | "food"
+    | "study"
+    | "health"
+    | "culture"
+    | "nature"
+    | "nightlife"
+    | "weekend";
+  mapsUrl: string;
+  whyRecommended: string;
+  status: "live-search" | "verified-place";
+  sourceRefIds: string[];
 };
 
 export type DailyLogisticsItem = {

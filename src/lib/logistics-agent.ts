@@ -39,6 +39,9 @@ export function buildLogisticsAgentArtifacts(input: LogisticsAgentInput): Logist
   const budgetNote = input.budget.notes[0] ?? "Budget fit depends most on rent, commute, deposits, and first-month setup costs.";
   const city = input.profile.destinationCity;
   const campus = input.partnerUniversity.campusArea;
+  const localLifeSourceIds = Array.from(
+    new Set(input.localLife.places.flatMap((place) => place.sourceRefIds))
+  );
 
   const dailyLogistics: DailyLogisticsPlan = {
     arrival: [
@@ -56,7 +59,7 @@ export function buildLogisticsAgentArtifacts(input: LogisticsAgentInput): Logist
         detail: `Use the campus map layer to confirm airport or station arrival, late-night transport, and the safest route to ${campus}.`,
         timing: "arrival",
         linkedFeature: "travel",
-        sourceRefIds: []
+        sourceRefIds: localLifeSourceIds
       },
       {
         title: "Prepare the document and payment folder",
@@ -119,8 +122,10 @@ export function buildLogisticsAgentArtifacts(input: LogisticsAgentInput): Logist
       }
     ],
     parentAssurance: [
-      topAccommodation
-        ? `Housing is not treated as guaranteed. The top option is ranked with a ${topAccommodation.fitScore}/100 fit score and still requires source verification.`
+      topAccommodation?.fitScore !== undefined
+        ? `Housing is not treated as guaranteed. The top option has a ${topAccommodation.fitScore}/100 seeded fit score and still requires source verification.`
+        : topAccommodation
+          ? "Housing is not treated as guaranteed. The top route is a discovery link and has no verified fit score yet."
         : "Housing is not yet ranked, so the plan should not be presented as booking-ready.",
       `Budget is visible, but confidence is ${input.budget.confidence}; deposits and first-month setup costs should remain separate from the monthly budget.`,
       input.sources.length > 0
@@ -192,7 +197,7 @@ function buildPlanQna(input: LogisticsAgentInput, dailyLogistics: DailyLogistics
       question: "What is around campus for daily life?",
       answer: `Start with groceries around ${input.localLife.groceries.join(", ")}, food areas around ${input.localLife.foodAreas.join(", ")}, and transport checks before committing to housing.`,
       confidence: "low",
-      sourceRefIds: []
+      sourceRefIds: Array.from(new Set(input.localLife.places.flatMap((place) => place.sourceRefIds)))
     },
     {
       id: "parent-risk",

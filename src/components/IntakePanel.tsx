@@ -13,6 +13,11 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
   const [months, setMonths] = useState(plan.profile.stayLengthMonths);
   const [housing, setHousing] = useState(plan.profile.housingPreference);
   const [style, setStyle] = useState(plan.profile.travelStyle);
+  const [startDate, setStartDate] = useState(plan.profile.startDate);
+  const [endDate, setEndDate] = useState(plan.profile.endDate);
+  const [studentEmail, setStudentEmail] = useState(plan.profile.studentEmail ?? "");
+  const [dietaryNeeds, setDietaryNeeds] = useState(plan.profile.dietaryNeeds.join(", "));
+  const [plannedActivities, setPlannedActivities] = useState(plan.profile.plannedActivities.join(", "));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,8 +27,11 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
       stayLengthMonths: months,
       housingPreference: housing,
       travelStyle: style,
-      dietaryNeeds: [],
-      plannedActivities: ["museums", "weekend rail trips", "student societies"]
+      dietaryNeeds: splitList(dietaryNeeds),
+      plannedActivities: splitList(plannedActivities),
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      studentEmail: studentEmail.trim()
     });
   }
 
@@ -31,10 +39,31 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
     <form className="intake-panel" onSubmit={submit}>
       <div>
         <span className="panel-label">Student intake</span>
-        <h3>London exchange requirements</h3>
+        <h3>{plan.profile.destinationCity} exchange requirements</h3>
         <p>
-          This is the judge-friendly form: enough input to prove personalization without slowing the demo.
+          Update the real constraints used by the plan, packing list, PDF, and email report.
         </p>
+      </div>
+
+      <div className="intake-field-grid">
+        <label>
+          Exchange start date
+          <input
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+          />
+        </label>
+
+        <label>
+          Exchange end date
+          <input
+            type="date"
+            min={startDate || undefined}
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+          />
+        </label>
       </div>
 
       <label>
@@ -67,6 +96,7 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
               key={option}
               type="button"
               className={housing === option ? "selected" : ""}
+              aria-pressed={housing === option}
               onClick={() => setHousing(option)}
             >
               {option}
@@ -74,6 +104,36 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
           ))}
         </div>
       </fieldset>
+
+      <label>
+        Dietary needs
+        <input
+          type="text"
+          value={dietaryNeeds}
+          placeholder="Halal, vegetarian, allergies"
+          onChange={(event) => setDietaryNeeds(event.target.value)}
+        />
+      </label>
+
+      <label>
+        Planned activities
+        <input
+          type="text"
+          value={plannedActivities}
+          placeholder="Museums, hiking, football"
+          onChange={(event) => setPlannedActivities(event.target.value)}
+        />
+      </label>
+
+      <label>
+        Student email for report
+        <input
+          type="email"
+          value={studentEmail}
+          placeholder="student@example.com"
+          onChange={(event) => setStudentEmail(event.target.value)}
+        />
+      </label>
 
       <fieldset>
         <legend>Travel style</legend>
@@ -83,6 +143,7 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
               key={option}
               type="button"
               className={style === option ? "selected" : ""}
+              aria-pressed={style === option}
               onClick={() => setStyle(option)}
             >
               {option}
@@ -96,4 +157,11 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
       </button>
     </form>
   );
+}
+
+function splitList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

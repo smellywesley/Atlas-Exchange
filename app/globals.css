@@ -71,6 +71,10 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 22px 70px rgba(0, 0, 0, 0.28);
 }
 
+section[id] {
+  scroll-margin-top: 112px;
+}
+
 .brand-lockup,
 .nav-links {
   display: flex;
@@ -1222,6 +1226,18 @@ button {
   margin-top: 34px;
 }
 
+.planner-output {
+  min-width: 0;
+}
+
+.plan-error {
+  margin: 0 0 12px;
+  border: 1px solid rgba(242, 139, 130, 0.55);
+  background: rgba(99, 34, 30, 0.42);
+  color: #ffd7d2;
+  padding: 12px 14px;
+}
+
 .intake-panel,
 .dashboard-panel {
   border: 1px solid var(--line);
@@ -1279,6 +1295,12 @@ button {
 
 .intake-panel legend {
   margin-bottom: 9px;
+}
+
+.intake-field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
 .segmented-control {
@@ -1354,6 +1376,70 @@ button {
   padding: 20px;
 }
 
+.budget-basis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(55, 183, 200, 0.36);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  padding: 12px 14px;
+  text-transform: capitalize;
+}
+
+.local-life-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.local-place-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.local-place-link {
+  position: relative;
+  display: grid;
+  min-height: 150px;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(8, 17, 17, 0.45);
+  color: var(--text);
+  padding: 14px 42px 14px 14px;
+  text-decoration: none;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.local-place-link:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.local-place-link span,
+.local-place-link small {
+  color: var(--muted);
+}
+
+.local-place-link span {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.local-place-link small {
+  line-height: 1.45;
+}
+
+.local-place-link svg {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--accent);
+}
+
 .provider-banner {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
@@ -1383,6 +1469,63 @@ button {
   grid-column: 1 / -1;
   border-top: 1px solid var(--line);
   padding-top: 12px;
+}
+
+.report-delivery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 20px;
+  border-top: 1px solid var(--line);
+  background: rgba(55, 183, 200, 0.08);
+  padding: 20px;
+}
+
+.report-delivery > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.report-delivery span,
+.report-delivery p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.report-delivery p {
+  grid-column: 1 / -1;
+  min-height: 1.45em;
+  margin: 0;
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.report-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(8, 17, 17, 0.68);
+  color: var(--text);
+  padding: 0 14px;
+}
+
+.report-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.report-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .overview-grid,
@@ -1804,11 +1947,26 @@ button {
   .university-search-results,
   .overview-grid,
   .packing-grid,
+  .intake-field-grid,
+  .local-place-grid,
   .provider-banner,
   .capability-band,
   .local-grid,
   .daily-logistics-grid {
     grid-template-columns: 1fr;
+  }
+
+  .report-delivery {
+    grid-template-columns: 1fr;
+  }
+
+  .report-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .report-delivery p {
+    grid-column: 1;
   }
 
   .campus-intel-copy h3 {

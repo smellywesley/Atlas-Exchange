@@ -1,5 +1,5 @@
 import { londonPartners } from "./demo-data";
-import type { ExchangeCountry, ExchangeUniversity } from "./exchange-map-data";
+import { exchangeCountries, type ExchangeCountry, type ExchangeUniversity } from "./exchange-map-data";
 import { buildLogisticsAgentArtifacts } from "./logistics-agent";
 import { getProviderStatus } from "./provider-status";
 import { searchLondonAccommodation } from "./search-provider";
@@ -37,14 +37,22 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
     destinationCity: "London",
     partnerUniversityId: partnerUniversity.id,
     partnerUniversityName: partnerUniversity.name,
-    startDate: "2026-09-15",
-    endDate: "2027-01-15"
+    startDate: input.startDate ?? "",
+    endDate: input.endDate ?? ""
   };
 
-  const budget = buildBudget(input.monthlyBudgetSgd);
+  const budget = buildBudget(
+    input.monthlyBudgetSgd,
+    accommodationSearch.options[0]?.estimatedMonthlyCostSgd,
+    partnerUniversity.city
+  );
   const packing = buildPacking(input);
   const deadlines = buildDeadlines(partnerUniversity);
-  const localLife = buildLocalLife();
+  const localLife = buildLocalLife(partnerUniversity);
+  const planSources = [
+    ...accommodationSearch.sources,
+    buildMapsDiscoverySource(partnerUniversity.city, partnerUniversity.name, `src-${partnerUniversity.id}-local-life`)
+  ];
   const accommodation = {
     rankedOptions: accommodationSearch.options,
     recommendationSummary:
@@ -63,7 +71,7 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
     packing,
     deadlines,
     localLife,
-    sources: accommodationSearch.sources
+    sources: planSources
   });
 
   return {
@@ -76,8 +84,8 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
     localLife,
     dailyLogistics: logisticsAgent.dailyLogistics,
     qna: logisticsAgent.qna,
-    sources: accommodationSearch.sources,
-    generatedAt: new Date("2026-07-09T00:00:00.000Z").toISOString()
+    sources: planSources,
+    generatedAt: new Date().toISOString()
   };
 }
 
@@ -96,10 +104,9 @@ export function buildAtlasPlanResponse(
   university: ExchangeUniversity,
   input: ExchangeProfileInput
 ) {
-  if (country.id === "united-kingdom") {
-    const londonPartner =
-      londonPartners.find((partner) => partner.name === university.name) ?? londonPartners[0];
+  const londonPartner = londonPartners.find((partner) => partner.name === university.name);
 
+  if (country.id === "united-kingdom" && londonPartner) {
     return buildLondonPlanResponse({
       ...input,
       partnerUniversityId: londonPartner.id
@@ -126,16 +133,16 @@ export function buildAtlasPlanResponse(
     destinationCity: university.city,
     partnerUniversityId: partnerUniversity.id,
     partnerUniversityName: university.name,
-    startDate: "2026-09-15",
-    endDate: "2027-01-15"
+    startDate: input.startDate ?? "",
+    endDate: input.endDate ?? ""
   };
-  const budget = buildBudget(input.monthlyBudgetSgd);
   const packing = buildDestinationPacking(input, country);
   const deadlines = buildDestinationDeadlines(university);
   const sources = buildDestinationSources(country, university);
-  const localLife = buildDestinationLocalLife(country, university.city);
+  const localLife = buildDestinationLocalLife(country, university);
+  const rankedOptions = buildDestinationAccommodation(country, university);
   const accommodation = {
-    rankedOptions: buildDestinationAccommodation(country, university, input.monthlyBudgetSgd),
+    rankedOptions,
     recommendationSummary:
       `Start with ${university.name} housing guidance, then compare verified student accommodation near ${university.city} before short-stay buffers.`,
     risks: [
@@ -144,6 +151,11 @@ export function buildAtlasPlanResponse(
     ],
     generatedBy: "mock" as const
   };
+  const budget = buildBudget(
+    input.monthlyBudgetSgd,
+    rankedOptions[0]?.estimatedMonthlyCostSgd,
+    university.city
+  );
   const fullPartnerUniversity = {
     ...partnerUniversity,
     strengths: [
@@ -175,14 +187,52 @@ export function buildAtlasPlanResponse(
       dailyLogistics: logisticsAgent.dailyLogistics,
       qna: logisticsAgent.qna,
       sources,
-      generatedAt: new Date("2026-07-09T00:00:00.000Z").toISOString()
+      generatedAt: new Date().toISOString()
     },
     providerStatus
   };
 }
 
-function buildBudget(monthlyBudgetSgd: number): BudgetPlan {
-  const rent = Math.round(monthlyBudgetSgd * 0.5);
+export function buildPlanResponseForInput(input: ExchangeProfileInput) {
+  const londonPartner = londonPartners.find((partner) => partner.id === input.partnerUniversityId);
+  const universityName = input.universityName ?? londonPartner?.name;
+  const country = input.countryId
+    ? exchangeCountries.find((item) => item.id === input.countryId)
+    : exchangeCountries.find((item) =>
+        item.universities.some((university) => university.name === universityName)
+      );
+
+  if (!country) {
+    throw new DestinationResolutionError("The selected destination country is not available.");
+  }
+
+  const university = country.universities.find((item) =>
+    item.name === universityName &&
+    (!input.universityPartnership || item.partnership === input.universityPartnership)
+  );
+
+  if (!university) {
+    throw new DestinationResolutionError(
+      `${universityName ?? "The selected university"} is not a partner university in ${country.name}.`
+    );
+  }
+
+  return buildAtlasPlanResponse(country, university, input);
+}
+
+export class DestinationResolutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DestinationResolutionError";
+  }
+}
+
+function buildBudget(
+  monthlyBudgetSgd: number,
+  rentEstimateSgd: number | undefined,
+  destinationCity: string
+): BudgetPlan {
+  const rent = rentEstimateSgd ?? Math.round(monthlyBudgetSgd * 0.5);
   const food = Math.round(monthlyBudgetSgd * 0.16);
   const groceries = Math.round(monthlyBudgetSgd * 0.13);
   const transport = Math.round(monthlyBudgetSgd * 0.08);
@@ -205,9 +255,12 @@ function buildBudget(monthlyBudgetSgd: number): BudgetPlan {
       leisure,
       emergencyBuffer
     },
-    confidence: "medium",
+    basis: rentEstimateSgd ? "seeded-estimate" : "planning-envelope",
+    confidence: rentEstimateSgd ? "medium" : "low",
     notes: [
-      "Rent dominates London planning. Lock housing before optimizing food or weekend budgets.",
+      rentEstimateSgd
+        ? `The ${destinationCity} estimate uses a seeded rent value and still needs a live listing check.`
+        : `This is a spending envelope for ${destinationCity}, not a market-price estimate. Housing cost is unknown until a source is verified.`,
       emergencyBuffer < 180
         ? "This budget is tight after rent and essentials. Treat deposits and first-month rent as separate pre-departure cash needs."
         : "Emergency buffer is kept visible because deposits and first-month rent can land together."
@@ -274,7 +327,7 @@ function buildDeadlines(partnerUniversity: { id: string; name: string }): Deadli
   return [
     {
       title: `Confirm ${partnerUniversity.name} housing eligibility`,
-      dueDate: "2026-07-22",
+      dueDate: undefined,
       category: "accommodation",
       urgency: "high",
       linkedFeature: "accommodation",
@@ -282,7 +335,7 @@ function buildDeadlines(partnerUniversity: { id: string; name: string }): Deadli
     },
     {
       title: "Prepare visa document folder",
-      dueDate: "2026-08-01",
+      dueDate: undefined,
       category: "visa",
       urgency: "high",
       linkedFeature: "visa",
@@ -290,7 +343,7 @@ function buildDeadlines(partnerUniversity: { id: string; name: string }): Deadli
     },
     {
       title: "Freeze module mapping worksheet",
-      dueDate: "2026-08-12",
+      dueDate: undefined,
       category: "modules",
       urgency: "medium",
       linkedFeature: "moduleMapping",
@@ -298,7 +351,7 @@ function buildDeadlines(partnerUniversity: { id: string; name: string }): Deadli
     },
     {
       title: "Run final packing pass",
-      dueDate: "2026-09-08",
+      dueDate: undefined,
       category: "packing",
       urgency: "medium",
       linkedFeature: "packing",
@@ -307,7 +360,7 @@ function buildDeadlines(partnerUniversity: { id: string; name: string }): Deadli
   ];
 }
 
-function buildLocalLife(): LocalLifePlan {
+function buildLocalLife(partnerUniversity: { id: string; name: string; city: string; campusArea: string }): LocalLifePlan {
   return {
     groceries: ["Tesco", "Sainsbury's", "Lidl", "Waitrose for occasional top-ups"],
     foodAreas: ["Bloomsbury", "Soho", "Camden", "Borough Market"],
@@ -320,17 +373,20 @@ function buildLocalLife(): LocalLifePlan {
       "Singapore Society events",
       "University international student welcome week",
       "Faculty societies tied to module mapping"
-    ]
+    ],
+    places: buildLocalPlaceSearches(
+      partnerUniversity.city,
+      partnerUniversity.name,
+      `src-${partnerUniversity.id}-local-life`
+    )
   };
 }
 
 function buildDestinationAccommodation(
   country: ExchangeCountry,
-  university: ExchangeUniversity,
-  monthlyBudgetSgd: number
+  university: ExchangeUniversity
 ) {
   const cityQuery = encodeURIComponent(`${university.city} student accommodation ${university.name}`);
-  const rent = Math.round(monthlyBudgetSgd * 0.48);
 
   return [
     {
@@ -338,9 +394,9 @@ function buildDestinationAccommodation(
       title: `${university.name} housing and exchange guidance`,
       provider: "school" as const,
       url: university.sourceUrl ?? buildSearchUrl(`${university.name} exchange housing ${university.city}`),
-      estimatedMonthlyCostSgd: rent,
-      commuteMinutes: 15,
-      fitScore: 88,
+      estimatedMonthlyCostSgd: undefined,
+      commuteMinutes: undefined,
+      fitScore: undefined,
       rankingReasons: [`Lowest uncertainty because this starts from ${university.name} or NUS partner guidance.`],
       tradeoffs: ["Availability and eligibility still need confirmation."],
       sourceRefIds: [`src-${slugify(university.name)}-partner`],
@@ -351,9 +407,9 @@ function buildDestinationAccommodation(
       title: `Student accommodation search near ${university.city}`,
       provider: "web" as const,
       url: `https://www.google.com/search?q=${cityQuery}`,
-      estimatedMonthlyCostSgd: Math.round(rent * 1.08),
-      commuteMinutes: 24,
-      fitScore: 82,
+      estimatedMonthlyCostSgd: undefined,
+      commuteMinutes: undefined,
+      fitScore: undefined,
       rankingReasons: ["Good backup path when school housing is unavailable or timing is tight."],
       tradeoffs: ["Needs manual comparison of utilities, deposits, and contract length."],
       sourceRefIds: [`src-${slugify(country.id)}-housing-search`],
@@ -364,9 +420,9 @@ function buildDestinationAccommodation(
       title: `Short-stay arrival buffer in ${university.city}`,
       provider: "airbnb" as const,
       url: `https://www.airbnb.com/s/${encodeURIComponent(university.city)}/homes`,
-      estimatedMonthlyCostSgd: Math.round(rent * 1.28),
-      commuteMinutes: 32,
-      fitScore: 70,
+      estimatedMonthlyCostSgd: undefined,
+      commuteMinutes: undefined,
+      fitScore: undefined,
       rankingReasons: ["Useful for the first one to two weeks while inspecting long-stay options."],
       tradeoffs: ["Usually too expensive for the whole semester."],
       sourceRefIds: [`src-${slugify(country.id)}-arrival-buffer`],
@@ -446,7 +502,7 @@ function buildDestinationDeadlines(university: ExchangeUniversity): DeadlineItem
   return [
     {
       title: `Confirm ${university.name} housing route`,
-      dueDate: "2026-07-22",
+      dueDate: undefined,
       category: "accommodation",
       urgency: "high",
       linkedFeature: "accommodation",
@@ -454,7 +510,7 @@ function buildDestinationDeadlines(university: ExchangeUniversity): DeadlineItem
     },
     {
       title: "Check visa or entry document requirements",
-      dueDate: "2026-08-01",
+      dueDate: undefined,
       category: "visa",
       urgency: "high",
       linkedFeature: "visa",
@@ -462,7 +518,7 @@ function buildDestinationDeadlines(university: ExchangeUniversity): DeadlineItem
     },
     {
       title: "Freeze module mapping worksheet",
-      dueDate: "2026-08-12",
+      dueDate: undefined,
       category: "modules",
       urgency: "medium",
       linkedFeature: "moduleMapping",
@@ -470,7 +526,7 @@ function buildDestinationDeadlines(university: ExchangeUniversity): DeadlineItem
     },
     {
       title: "Run final country-specific packing pass",
-      dueDate: "2026-09-08",
+      dueDate: undefined,
       category: "packing",
       urgency: "medium",
       linkedFeature: "packing",
@@ -479,7 +535,11 @@ function buildDestinationDeadlines(university: ExchangeUniversity): DeadlineItem
   ];
 }
 
-function buildDestinationLocalLife(country: ExchangeCountry, city: string): LocalLifePlan {
+function buildDestinationLocalLife(
+  country: ExchangeCountry,
+  university: ExchangeUniversity
+): LocalLifePlan {
+  const city = university.city;
   return {
     groceries: ["Campus stores", "Neighborhood supermarkets", "Budget meal districts"],
     foodAreas: [city, "Campus district", "Main station area"],
@@ -496,18 +556,24 @@ function buildDestinationLocalLife(country: ExchangeCountry, city: string): Loca
       "Exchange buddy meetup",
       "NUS or Singapore student networks",
       "Faculty-specific welcome sessions"
-    ]
+    ],
+    places: buildLocalPlaceSearches(
+      city,
+      university.name,
+      `src-${slugify(country.id)}-local-life`
+    )
   };
 }
 
 function buildDestinationSources(country: ExchangeCountry, university: ExchangeUniversity) {
+  const fetchedAt = new Date().toISOString();
   return [
     {
       id: `src-${slugify(university.name)}-partner`,
       title: `${university.name} exchange partner reference`,
       url: university.sourceUrl ?? buildSearchUrl(`NUS exchange ${university.name} ${country.name}`),
       provider: "NUS / partner",
-      fetchedAt: new Date("2026-07-09T00:00:00.000Z").toISOString(),
+      fetchedAt,
       snippet: `${university.partnership} pathway for ${university.city}, ${country.name}.`,
       confidence: university.sourceUrl ? "high" as const : "medium" as const
     },
@@ -516,7 +582,7 @@ function buildDestinationSources(country: ExchangeCountry, university: ExchangeU
       title: `${university.city} accommodation discovery`,
       url: buildSearchUrl(`${university.city} student accommodation ${university.name}`),
       provider: "Live-link search",
-      fetchedAt: new Date("2026-07-09T00:00:00.000Z").toISOString(),
+      fetchedAt,
       snippet: "Search link retained so judges can see the path is ready for live accommodation connectors.",
       confidence: "medium" as const
     },
@@ -525,11 +591,67 @@ function buildDestinationSources(country: ExchangeCountry, university: ExchangeU
       title: `${university.city} short-stay arrival buffer`,
       url: `https://www.airbnb.com/s/${encodeURIComponent(university.city)}/homes`,
       provider: "Airbnb live-link search",
-      fetchedAt: new Date("2026-07-09T00:00:00.000Z").toISOString(),
+      fetchedAt,
       snippet: "Short-stay link kept as a buffer path only; availability, price, and lease suitability need manual verification.",
       confidence: "low" as const
-    }
+    },
+    buildMapsDiscoverySource(
+      university.city,
+      university.name,
+      `src-${slugify(country.id)}-local-life`
+    )
   ];
+}
+
+function buildMapsDiscoverySource(city: string, universityName: string, id: string) {
+  return {
+    id,
+    title: `${city} local-life discovery around ${universityName}`,
+    url: buildMapsSearchUrl(`student essentials and things to do near ${universityName} ${city}`),
+    provider: "Google Maps live search",
+    fetchedAt: new Date().toISOString(),
+    snippet: "Live search links for local essentials and activities. Names, ratings, prices, and opening hours must be checked in Maps.",
+    confidence: "low" as const
+  };
+}
+
+function buildLocalPlaceSearches(city: string, universityName: string, sourceId: string) {
+  const searches = [
+    ["Budget supermarkets", "groceries", "budget supermarkets"],
+    ["Asian groceries", "groceries", "Asian grocery stores"],
+    ["Affordable student meals", "food", "affordable student restaurants"],
+    ["Vegetarian food", "food", "vegetarian restaurants"],
+    ["Halal food", "food", "halal restaurants"],
+    ["Study cafes", "study", "quiet study cafes"],
+    ["Public libraries", "study", "public libraries"],
+    ["Pharmacies", "health", "pharmacies"],
+    ["Walk-in clinics", "health", "walk in clinics"],
+    ["Museums", "culture", "top museums"],
+    ["Art galleries", "culture", "art galleries"],
+    ["Historic places", "culture", "historic attractions"],
+    ["Local markets", "culture", "local markets"],
+    ["Parks", "nature", "parks"],
+    ["Walking trails", "nature", "walking trails"],
+    ["Live music", "nightlife", "live music venues"],
+    ["Student nightlife", "nightlife", "student nightlife"],
+    ["Weekend day trips", "weekend", "best day trips"],
+    ["Sports and recreation", "weekend", "student sports and recreation"],
+    ["Free things to do", "weekend", "free things to do"]
+  ] as const;
+
+  return searches.map(([title, category, query], index) => ({
+    id: `${slugify(universityName)}-local-${index + 1}`,
+    title,
+    category,
+    mapsUrl: buildMapsSearchUrl(`${query} near ${universityName} ${city}`),
+    whyRecommended: `Open live Maps results for ${query} around the selected campus.`,
+    status: "live-search" as const,
+    sourceRefIds: [sourceId]
+  }));
+}
+
+function buildMapsSearchUrl(query: string) {
+  return `https://www.google.com/maps/search/${encodeURIComponent(query)}`;
 }
 
 function buildSearchUrl(query: string) {
