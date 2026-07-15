@@ -333,7 +333,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         </div>
       </nav>
 
-      <motion.section id="top" className="hero-section" {...sectionMotion}>
+      <motion.section id="top" className="hero-section" {...sectionMotion} initial={false}>
         <div className="hero-backdrop" aria-hidden="true">
           {selectedUniversityImage && <img src={selectedUniversityImage} alt="" />}
         </div>

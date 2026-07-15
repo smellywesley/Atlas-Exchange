@@ -6,8 +6,8 @@ Make Atlas Exchange work without credits now, then switch to live LLM synthesis 
 
 ## Current Behavior
 
-- `OPENAI_API_KEY` missing: deterministic mock planner.
-- `OPENAI_API_KEY` present: provider status becomes OpenAI-ready, but synthesis still stays deterministic until the provider is implemented.
+- Provider status remains deterministic `mock` with or without credentials.
+- If `OPENAI_API_KEY` is present before the provider exists, the key is ignored and the public status response remains unchanged.
 
 This prevents accidental spend and keeps the demo reliable.
 
@@ -58,6 +58,8 @@ MAX_OUTPUT_TOKENS=1800
 ```
 
 ## Implementation Steps
+
+Implement and evaluate the provider before adding production credentials or changing provider status. A key is configuration, not a capability flag.
 
 1. Add `src/lib/planner-provider.ts`.
 2. Add `MockPlannerProvider`.

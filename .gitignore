@@ -15,3 +15,6 @@ atlas-dev*.log
 *.tsbuildinfo
 public/renders
 .gstack/
+
+.vercel
+.env*

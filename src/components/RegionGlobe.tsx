@@ -51,6 +51,7 @@ export function RegionGlobe({
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const fullscreenTriggerRef = useRef<HTMLButtonElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isRendererUnavailable, setIsRendererUnavailable] = useState(false);
   const selectedRef = useRef(selectedCountry);
   const isDetailOpenRef = useRef(isDetailOpen);
   const highlightedUniversityKeyRef = useRef(highlightedUniversityKey);
@@ -149,14 +150,27 @@ export function RegionGlobe({
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0, 4.95);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: "high-performance"
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance"
+      });
+      setIsRendererUnavailable(false);
+    } catch {
+      setIsRendererUnavailable(true);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     host.appendChild(renderer.domElement);
+
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      setIsRendererUnavailable(true);
+    };
+    renderer.domElement.addEventListener("webglcontextlost", handleContextLost);
 
     const ambient = new THREE.AmbientLight(0xb7f3ff, 0.9);
     scene.add(ambient);
@@ -492,6 +506,7 @@ export function RegionGlobe({
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("wheel", onWheel);
+      renderer.domElement.removeEventListener("webglcontextlost", handleContextLost);
       disposeObjectResources(markerGroup);
       earthTexture.dispose();
       cloudTexture.dispose();
@@ -514,13 +529,18 @@ export function RegionGlobe({
       ref={fullscreenRef}
       className={`globe-card globe-template-${selectedCountry.template} ${isFullscreen ? "is-fullscreen" : ""}`}
       style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
-      role={isFullscreen ? "dialog" : undefined}
+      role={isFullscreen ? "dialog" : "region"}
       aria-modal={isFullscreen ? "true" : undefined}
       aria-labelledby={isFullscreen ? "exchange-atlas-heading" : undefined}
       aria-label={isFullscreen ? undefined : `Interactive exchange atlas ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
       tabIndex={isFullscreen ? -1 : undefined}
     >
-      <div ref={mountRef} className="three-globe-mount" />
+      <div ref={mountRef} className="three-globe-mount" aria-hidden="true" />
+      {isRendererUnavailable && (
+        <div className="globe-render-error" role="status">
+          3D view unavailable. Use the country and university controls to continue.
+        </div>
+      )}
       <div className="globe-hud">
         <div>
           <span>Drag / zoom / click university markers</span>
@@ -540,6 +560,7 @@ export function RegionGlobe({
             key={country.id}
             type="button"
             className={country.id === selectedCountry.id ? "active" : ""}
+            aria-pressed={country.id === selectedCountry.id}
             onClick={() => onCountrySelect(country)}
           >
             <span style={{ "--country-accent": country.accent } as CSSProperties} />

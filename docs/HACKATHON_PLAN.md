@@ -28,7 +28,7 @@ For the hackathon, the strongest version is not a generic chatbot. It is a cinem
 - Budget estimate
 - Smart packing plan
 - Deadline plan
-- Mockable AI route that can switch to OpenAI when `OPENAI_API_KEY` is available
+- Deterministic AI-ready contract; OpenAI mode remains disabled until a provider client and evaluation path are implemented
 - Integration schema for teammate modules
 
 ### In Scope As Expansion Paths

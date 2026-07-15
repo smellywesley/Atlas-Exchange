@@ -2,6 +2,8 @@
 
 Atlas Exchange is a student exchange planning web app built for a hackathon. It helps NUS students turn scattered exchange preparation work into one synchronized departure plan: partner selection, academic candidates, official visa guidance, accommodation, budget, daily logistics, packing, deadlines, cultural preparation, local life, and visible sources.
 
+**Live demo:** [atlas-exchange.vercel.app](https://atlas-exchange.vercel.app)
+
 The current product supports every partner route in the included dataset without silently falling back to London. London remains the most detailed seeded demo, while all 92 displayed partner universities now have a local campus image in the globe HUD and university cards.
 
 ## Why This Exists
@@ -43,7 +45,7 @@ For the hackathon demo, London is still the most source-complete path. Global ro
 - Local life guidance for groceries, food areas, transport, weekend ideas, and communities.
 - No-key logistics agent layer that generates arrival tasks, week-one tasks, ongoing routines, parent reassurance, and structured Q&A for every selected partner university.
 - Source visibility layer using `SourceRef`.
-- Provider status endpoint showing mock, hybrid, or OpenAI-ready modes.
+- Provider status endpoint that reports only capabilities the current build actually invokes.
 - Evidence-linked PDF report generation and controlled, allowlisted student email delivery.
 - Local campus-image override folder with a 92-school filename checklist.
 - Remotion demo video starter.
@@ -108,6 +110,26 @@ If `localhost` behaves oddly in a browser, try:
 http://127.0.0.1:3003
 ```
 
+## Deployment
+
+The public hackathon build is deployed on Vercel:
+
+- Production: [https://atlas-exchange.vercel.app](https://atlas-exchange.vercel.app)
+- Framework preset: Next.js
+- Supported Node.js range: `>=20 <25`
+- Deployment boundary: `.vercelignore` excludes local build output, tests, tooling, and rendered video assets.
+- Edge control: the production Vercel Firewall limits `/api/*` to 60 requests per 60 seconds, keyed by IP and JA4 fingerprint.
+
+Deploy the current working tree with:
+
+```bash
+npx vercel@latest deploy --prod --yes --project atlas-exchange
+```
+
+The 15 July 2026 deployment was verified at desktop and 390x844 mobile viewports. The home page, campus images, Three.js globe, Google Maps embed, plan generation, deterministic Q&A, live NUSMods lookup, and PDF export all returned successfully. Report email intentionally returns `503` until the controlled recipient configuration below is added to Vercel. Production also sets `TRUST_PROXY_HEADERS=true` because Vercel overwrites forwarding headers, and pins `APP_ORIGIN` to the canonical production URL.
+
+The Vercel project is currently deployed through the CLI. GitHub remains the source repository, but automatic Git-to-Vercel deployments are not claimed until the repository integration is connected in the Vercel dashboard.
+
 ## Useful Commands
 
 Typecheck:
@@ -147,11 +169,7 @@ npm run video:render
 
 Returns the current provider mode and cost guardrails.
 
-Modes:
-
-- `mock`: deterministic planner, no OpenAI calls.
-- `hybrid`: OpenAI key available but full live search provider may be missing.
-- `openai`: future mode for live LLM synthesis with search integration.
+The current route reports `mock`: deterministic planning, live platform links, and zero OpenAI calls. The `hybrid` and `openai` schema values are reserved for future provider implementations; adding credentials alone does not activate or advertise them.
 
 ### `POST /api/plan`
 
@@ -191,7 +209,7 @@ Regenerates a validated plan server-side and returns a multi-page PDF with click
 
 ### `POST /api/report/email`
 
-Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, an exact `REPORT_EMAIL_ALLOWLIST`, and canonical `APP_ORIGIN` such as `http://localhost:3003` (no trailing slash). Without all four, the route remains disabled and the UI falls back to PDF download.
+Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, an exact `REPORT_EMAIL_ALLOWLIST`, and canonical `APP_ORIGIN` such as `https://atlas-exchange.vercel.app` (no trailing slash). Without all four, the route remains disabled and the UI falls back to PDF download.
 
 ## Architecture
 
@@ -241,7 +259,8 @@ The interactive country/university atlas lives in [src/lib/exchange-map-data.ts]
 Atlas Exchange is designed to be demo-safe before API credits arrive:
 
 - Deterministic planner by default.
-- One future LLM synthesis call after form submit.
+- Provider credentials are ignored until a real provider client and evaluation path are implemented.
+- A future release may add one LLM synthesis call after form submit.
 - No model calls while typing.
 - Source URLs preserved as structured `SourceRef` objects.
 - Fallbacks clearly labeled as `live-link`, `seeded-fallback`, or `needs-review`.
@@ -274,8 +293,9 @@ Notion project hub:
 - London has the deepest seeded demo content. Global paths generate synchronized plans but deliberately leave unverified market prices, commute times, fit scores, and exact deadlines blank.
 - Accommodation search is live-link based, not full listing extraction.
 - LLM synthesis is planned but not active by default.
+- The public Vercel demo runs in deterministic `mock` provider mode. Credentials alone cannot change the reported mode.
 - Email allowlisting and origin checks are appropriate for a controlled local demo, not proof that a caller owns the recipient address.
-- Rate limits and concurrency gates are process-local. Do not deploy multiple instances publicly until a shared edge or Redis-backed limiter is configured.
+- Application rate limits and concurrency gates are process-local. The deployed Vercel Firewall adds a global 60-request-per-minute `/api/*` boundary for the hackathon, but paid providers and general email delivery still require route-specific shared quotas before broader public use.
 - `TRUST_PROXY_HEADERS=true` is safe only behind an edge that overwrites untrusted forwarding headers.
 - No user accounts, persistence, production auth, or payment.
 - Visa guidance links to official sources but does not make a visa decision. Module results are candidate-only and still require faculty approval.

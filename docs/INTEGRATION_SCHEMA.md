@@ -188,11 +188,11 @@ Output:
 }
 ```
 
-Behavior:
+Current behavior:
 
-- If `OPENAI_API_KEY` is missing, return deterministic mock output.
-- If search credentials are missing, return live-link templates and seeded fallbacks.
-- Never fail the whole dashboard because one provider fails.
+- Always return deterministic `mock` output and live-link templates.
+- Ignore provider credentials until the corresponding client, failure path, and evaluation suite are implemented.
+- Never fail the whole dashboard because one future provider fails.
 
 ### `GET /api/search/accommodation`
 

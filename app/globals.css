@@ -389,6 +389,21 @@ section[id] {
   height: 100%;
 }
 
+.globe-render-error {
+  position: absolute;
+  top: 160px;
+  left: 50%;
+  z-index: 2;
+  width: min(360px, calc(100% - 40px));
+  border: 1px solid rgba(244, 247, 245, 0.18);
+  border-radius: 8px;
+  background: rgba(8, 17, 17, 0.88);
+  padding: 14px 16px;
+  color: var(--muted);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
 .globe-card::before {
   position: absolute;
   inset: 0;
@@ -836,6 +851,11 @@ section[id] {
 
 .university-search-field input::placeholder {
   color: rgba(244, 247, 245, 0.5);
+}
+
+.university-search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(55, 183, 200, 0.2);
 }
 
 .university-search-results {

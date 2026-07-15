@@ -116,10 +116,10 @@ GET /api/status
 Modes:
 
 - `mock`: no OpenAI key, deterministic planner, live-link search
-- `hybrid`: OpenAI key present but search API missing
-- `openai`: OpenAI key and live search API available
+- `hybrid`: reserved for a future verified live-search integration
+- `openai`: reserved for a future verified LLM synthesis integration
 
-The UI shows provider mode and cost guardrails directly in the dashboard.
+The current UI always reports `mock` because the current plan path is deterministic. Credentials alone do not change the mode. The UI shows provider mode and cost guardrails directly in the dashboard.
 
 Generate a plan:
 
@@ -147,13 +147,13 @@ Do not block development on credits.
 
 When credits arrive:
 
-1. Add `OPENAI_API_KEY` to `.env.local`.
-2. Keep `MAX_SOURCE_SNIPPETS=6`.
-3. Keep `MAX_OUTPUT_TOKENS=1800`.
-4. Call the LLM only after form submit.
-5. Cache generated plans by profile hash before a public demo.
+1. Implement the versioned OpenAI provider and structured-output validation.
+2. Add golden-set regression tests and an explicit deterministic fallback.
+3. Keep `MAX_SOURCE_SNIPPETS=6` and `MAX_OUTPUT_TOKENS=1800`.
+4. Add `OPENAI_API_KEY` to `.env.local` only after the provider path passes evaluation.
+5. Call the LLM only after form submit and cache generated plans by profile hash before a public demo.
 
-The API key is not expensive by itself. Cost comes from usage.
+Credentials alone do not activate or advertise the provider. Cost comes from verified provider usage.
 
 ## Demo Commands
 

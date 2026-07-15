@@ -86,6 +86,37 @@ test("Oxford never falls back to UCL or London", () => {
   assert.notEqual(plan.partnerUniversity.name, "University College London");
 });
 
+test("credentials never advertise providers that are not implemented", () => {
+  const previousOpenAiKey = process.env.OPENAI_API_KEY;
+  const previousTavilyKey = process.env.TAVILY_API_KEY;
+
+  process.env.OPENAI_API_KEY = "test-placeholder";
+  process.env.TAVILY_API_KEY = "test-placeholder";
+
+  try {
+    const { providerStatus } = planEngine.buildPlanResponseForInput(inputFor("INSA Lyon"));
+
+    assert.equal(providerStatus.mode, "mock");
+    assert.equal(providerStatus.planner, "deterministic");
+    assert.equal(providerStatus.search, "live-link");
+    assert.equal(providerStatus.costControl.llmCallsPerSubmit, 0);
+    assert.equal(providerStatus.warnings.length, 1);
+    assert.match(providerStatus.warnings[0], /deterministic planning is active/i);
+  } finally {
+    if (previousOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousOpenAiKey;
+    }
+
+    if (previousTavilyKey === undefined) {
+      delete process.env.TAVILY_API_KEY;
+    } else {
+      process.env.TAVILY_API_KEY = previousTavilyKey;
+    }
+  }
+});
+
 test("global plans do not invent market prices, commute times, or fit scores", () => {
   const { plan } = planEngine.buildPlanResponseForInput(inputFor("Stanford University"));
 

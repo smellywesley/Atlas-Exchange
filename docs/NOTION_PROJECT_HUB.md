@@ -104,7 +104,7 @@ Backend and contracts:
 - `src/lib/demo-data.ts` stores partner universities and seeded data.
 - `src/lib/search-provider.ts` creates live accommodation links and source refs.
 - `src/lib/plan-engine.ts` generates the exchange plan.
-- `src/lib/provider-status.ts` reports mock, hybrid, or OpenAI readiness.
+- `src/lib/provider-status.ts` reports only the currently implemented deterministic `mock` mode; future modes remain reserved.
 - `app/api/plan/route.ts` generates plans.
 - `app/api/search/accommodation/route.ts` returns accommodation options.
 - `app/api/status/route.ts` returns provider mode and warnings.
@@ -201,25 +201,24 @@ Returns ranked accommodation options plus `SourceRef[]`.
 
 `mock`
 
-- No OpenAI key.
 - Deterministic planner.
 - Live-link accommodation search URLs.
-- Best mode for early hackathon development.
+- Only mode reported by the current build, even if unused credentials are present.
 
 `hybrid`
 
-- OpenAI key present, but full search provider not configured.
-- Use linked source cards plus LLM synthesis.
+- Reserved for a future verified live-search integration.
+- Not activated by credentials alone.
 
 `openai`
 
-- OpenAI key and search provider credentials available.
-- Use LLM synthesis after form submit only.
+- Reserved for a future verified LLM synthesis integration.
+- Not activated by credentials alone.
 
 Cost guardrails:
 
 - No LLM calls while typing.
-- One synthesis call after submit.
+- Zero synthesis calls in the current build.
 - Maximum six source snippets.
 - Maximum 1,800 output tokens.
 - Cache by profile hash before public demo.

@@ -7,8 +7,10 @@ Checked on July 9, 2026 against the official OpenAI API pricing page.
 For the hackathon, do not wait for API credits to start. Build the app so it works in three modes:
 
 1. `mock` - no key, deterministic demo-quality output.
-2. `hybrid` - live search links plus mock planning synthesis.
-3. `openai` - live search links plus LLM synthesis when `OPENAI_API_KEY` exists.
+2. `hybrid` - reserved for a future verified live-search integration.
+3. `openai` - reserved for a future verified LLM synthesis integration.
+
+The current build always reports `mock`. Credentials do not activate a provider until its client, failure behavior, and evaluation path exist.
 
 ## Why This Is Safe
 
