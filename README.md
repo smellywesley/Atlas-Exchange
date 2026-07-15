@@ -1,8 +1,8 @@
 # Atlas Exchange
 
-Atlas Exchange is a London-first student exchange planning web app built for a hackathon. It helps students turn scattered exchange preparation work into one clear departure plan: accommodation, budget, daily logistics, packing, deadlines, local life, and visible sources.
+Atlas Exchange is a student exchange planning web app built for a hackathon. It helps NUS students turn scattered exchange preparation work into one synchronized departure plan: partner selection, academic candidates, official visa guidance, accommodation, budget, daily logistics, packing, deadlines, cultural preparation, local life, and visible sources.
 
-The current product focuses on a polished London golden path for NUS exchange students, with global expansion paths for Korea, Europe, US elite schools, and South America.
+The current product supports every partner route in the included dataset without silently falling back to London. London remains the most detailed seeded demo, while all 92 displayed partner universities now have a local campus image in the globe HUD and university cards.
 
 ## Why This Exists
 
@@ -21,7 +21,7 @@ Atlas Exchange turns those pieces into one source-backed planning dashboard.
 
 The strongest version is not a generic chatbot. It is a cinematic planning interface where students choose a destination, fill practical constraints, and receive a ranked, explainable plan.
 
-For the hackathon demo, London is the full-depth path. Other regions are intentionally positioned as expansion paths.
+For the hackathon demo, London is still the most source-complete path. Global routes are destination-synchronized and deliberately omit unverified prices, commute times, scores, and deadlines instead of inventing them.
 
 ## Current Features
 
@@ -30,7 +30,12 @@ For the hackathon demo, London is the full-depth path. Other regions are intenti
 - Country-specific templates for city campuses, mountain routes, coastal routes, heritage routes, US campus corridors, and Pacific routes.
 - Partnership data surfaces for UK, South Korea, Japan, China, Hong Kong, Taiwan, Australia, New Zealand, Switzerland, Netherlands, France, Germany, USA East/West, Canada, Mexico, and Brazil.
 - Searchable partner-university cards across every included country and partnership route.
+- Ninety-two local 1600x1000 campus images wired into the globe HUD, selected-campus hero, and university cards.
 - Student intake for dates, budget, stay length, housing, dietary needs, planned activities, travel style, and report email.
+- Candidate-only NUSMods module lookup with bounded caching, single-flight request coalescing, process-wide concurrency control, and an outbound-call budget.
+- Destination-specific official visa sources that never claim to issue a visa decision.
+- Reviewed cultural preparation for supported cities, with an explicit `needs-review` state elsewhere.
+- Evidence-only deterministic Q&A with bounded caching and no PII input.
 - Ranked accommodation cards with official and platform links.
 - Monthly budget breakdown in SGD.
 - Smart packing checklist.
@@ -121,8 +126,7 @@ Lint and integrity tests:
 
 ```bash
 npm run lint
-npm run test:plan
-npm run test:images
+npm test
 ```
 
 Open Remotion Studio:
@@ -167,6 +171,14 @@ Example body:
 }
 ```
 
+### `GET /api/nusmods`
+
+Looks up one NUS module by `academicYear` and `moduleCode`. Results are review candidates only; Atlas Exchange never presents them as an approved host-university mapping.
+
+### `POST /api/qna`
+
+Answers a planning question only from the non-PII evidence supplied by the current generated plan. Unsupported questions return an explicit evidence gap instead of a fabricated answer.
+
 ### `GET /api/search/accommodation`
 
 Returns ranked accommodation options and source references.
@@ -179,7 +191,7 @@ Regenerates a validated plan server-side and returns a multi-page PDF with click
 
 ### `POST /api/report/email`
 
-Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, and an exact `REPORT_EMAIL_ALLOWLIST`. Without all three, the route remains disabled and the UI falls back to PDF download.
+Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, an exact `REPORT_EMAIL_ALLOWLIST`, and canonical `APP_ORIGIN` such as `http://localhost:3003` (no trailing slash). Without all four, the route remains disabled and the UI falls back to PDF download.
 
 ## Architecture
 
@@ -192,6 +204,8 @@ Next.js App Router
   |
   | /api/status
   | /api/plan
+  | /api/nusmods
+  | /api/qna
   | /api/search/accommodation
   | /api/report/pdf
   | /api/report/email
@@ -207,6 +221,9 @@ Shared ExchangePlan Contract
   |
   | budget
   | accommodation
+  | academic candidates
+  | visa guidance
+  | cultural preparation
   | packing
   | deadlines
   | local life
@@ -240,6 +257,8 @@ Atlas Exchange is designed to be demo-safe before API credits arrive:
 - [docs/DEMO_VIDEO_SCRIPT.md](docs/DEMO_VIDEO_SCRIPT.md): video demo narrative.
 - [docs/TEAM_HANDOFF.md](docs/TEAM_HANDOFF.md): teammate handoff notes.
 - [docs/FEATURE_4_6_PRODUCT_AUDIT.md](docs/FEATURE_4_6_PRODUCT_AUDIT.md): rigorous readiness audit and source-integrity findings.
+- [docs/FEATURES_1_6_INTEGRATION_STATUS.md](docs/FEATURES_1_6_INTEGRATION_STATUS.md): current cross-feature contract, verification, and remaining blockers.
+- [docs/SECURITY_AND_DEPLOYMENT.md](docs/SECURITY_AND_DEPLOYMENT.md): request controls and public-deployment gates.
 - [docs/NOTION_PROJECT_HUB.md](docs/NOTION_PROJECT_HUB.md): local copy of the Notion project hub.
 
 University campus images belong in [public/images/universities](public/images/universities). Follow that folder's README exactly so each HUD card resolves the correct file without guessing.
@@ -255,9 +274,12 @@ Notion project hub:
 - London has the deepest seeded demo content. Global paths generate synchronized plans but deliberately leave unverified market prices, commute times, fit scores, and exact deadlines blank.
 - Accommodation search is live-link based, not full listing extraction.
 - LLM synthesis is planned but not active by default.
-- Email allowlisting is appropriate for a controlled demo, not a substitute for authenticated or verified student ownership in production.
+- Email allowlisting and origin checks are appropriate for a controlled local demo, not proof that a caller owns the recipient address.
+- Rate limits and concurrency gates are process-local. Do not deploy multiple instances publicly until a shared edge or Redis-backed limiter is configured.
+- `TRUST_PROXY_HEADERS=true` is safe only behind an edge that overwrites untrusted forwarding headers.
 - No user accounts, persistence, production auth, or payment.
-- Visa and module mapping are integration contracts, not complete production workflows.
+- Visa guidance links to official sources but does not make a visa decision. Module results are candidate-only and still require faculty approval.
+- Two supplied campus-image records still need complete attribution metadata: National Cheng Kung University and University of Washington, Seattle.
 
 ## Demo Path
 

@@ -18,6 +18,10 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
   const [studentEmail, setStudentEmail] = useState(plan.profile.studentEmail ?? "");
   const [dietaryNeeds, setDietaryNeeds] = useState(plan.profile.dietaryNeeds.join(", "));
   const [plannedActivities, setPlannedActivities] = useState(plan.profile.plannedActivities.join(", "));
+  const [academicYear, setAcademicYear] = useState(plan.profile.academicYear ?? "");
+  const [nusModuleCodes, setNusModuleCodes] = useState(
+    (plan.profile.nusModuleCodes ?? []).join(", ")
+  );
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +33,8 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
       travelStyle: style,
       dietaryNeeds: splitList(dietaryNeeds),
       plannedActivities: splitList(plannedActivities),
+      academicYear: academicYear.trim(),
+      nusModuleCodes: splitList(nusModuleCodes).map((code) => code.toUpperCase()),
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       studentEmail: studentEmail.trim()
@@ -124,6 +130,29 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
           onChange={(event) => setPlannedActivities(event.target.value)}
         />
       </label>
+
+      <div className="intake-field-grid">
+        <label>
+          NUS academic year
+          <input
+            type="text"
+            value={academicYear}
+            placeholder="2026-2027"
+            pattern="[0-9]{4}-[0-9]{4}"
+            onChange={(event) => setAcademicYear(event.target.value)}
+          />
+        </label>
+
+        <label>
+          NUS module codes
+          <input
+            type="text"
+            value={nusModuleCodes}
+            placeholder="CS1010S, IS1108"
+            onChange={(event) => setNusModuleCodes(event.target.value)}
+          />
+        </label>
+      </div>
 
       <label>
         Student email for report

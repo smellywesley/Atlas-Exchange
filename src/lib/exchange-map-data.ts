@@ -25,6 +25,11 @@ export type ExchangeCountry = {
   universities: ExchangeUniversity[];
 };
 
+export function getUniversityRouteKey(university: ExchangeUniversity | undefined) {
+  if (!university) return "";
+  return [university.name, university.partnership, university.faculties?.join(",") ?? ""].join("::");
+}
+
 export type SearchableExchangeUniversity = ExchangeUniversity & {
   country: ExchangeCountry;
   countryId: string;

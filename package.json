@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint . --ext .js,.mjs,.ts,.tsx --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test": "node --test tests",
     "test:images": "node --test tests/university-image-search.test.mjs",
     "test:plan": "node --test tests/plan-integrity.test.mjs",
     "video:studio": "remotion studio video/index.ts",

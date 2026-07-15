@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { academicYearSchema } from "./academic-year";
+
 export type DestinationRegion =
   | "asia"
   | "europe"
@@ -41,9 +43,30 @@ export const exchangeProfileInputSchema = z.object({
   travelStyle: z.enum(["budget", "balanced", "comfort"]),
   dietaryNeeds: z.array(z.string().max(120)).max(12).default([]),
   plannedActivities: z.array(z.string().max(120)).max(12).default([]),
+  academicYear: z.union([
+    z.literal(""),
+    academicYearSchema
+  ]).optional(),
+  nusModuleCodes: z
+    .array(
+      z.string().trim().transform((value) => value.toUpperCase()).pipe(
+        z.string().min(3).max(16).regex(/^[A-Z]{1,8}\d{1,6}[A-Z0-9]{0,6}$/)
+      )
+    )
+    .max(6)
+    .refine((codes) => new Set(codes).size === codes.length, "Module codes must be unique.")
+    .default([]),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   studentEmail: z.string().email().max(254).optional().or(z.literal(""))
+}).superRefine((profile, context) => {
+  if (profile.nusModuleCodes.length > 0 && !profile.academicYear) {
+    context.addIssue({
+      code: "custom",
+      path: ["academicYear"],
+      message: "Academic year is required when module codes are supplied."
+    });
+  }
 });
 
 export type ExchangeProfileInput = z.infer<typeof exchangeProfileInputSchema>;
@@ -176,6 +199,45 @@ export type PlanQuestionAnswer = {
   sourceRefIds: string[];
 };
 
+export type VisaPlan = {
+  destinationCountry: string;
+  decision: "not-evaluated";
+  reviewStatus: "official-source-available" | "needs-review";
+  notices: string[];
+  source?: { authority: string; title: string; url: string };
+};
+
+export type CulturePlan = {
+  destinationCity: string;
+  destinationCountry: string;
+  reviewStatus: "reviewed" | "needs-review";
+  etiquetteTips: string[];
+  foodNotes: string[];
+  transportNotes: string[];
+  paymentNotes: string[];
+  notices: string[];
+  source?: { title: string; url: string };
+};
+
+export type AcademicModulePlanItem = {
+  moduleCode: string;
+  academicYear: string;
+  title?: string;
+  moduleCredit?: string;
+  semesters?: number[];
+  mappingStatus: "candidate-only";
+  approvalRequired: true;
+  lookupStatus: "not-requested" | "live" | "stale" | "unavailable";
+  sourceUrl?: string;
+  warning?: string;
+};
+
+export type AcademicPlan = {
+  academicYear?: string;
+  modules: AcademicModulePlanItem[];
+  notice: string;
+};
+
 export type ExchangePlan = {
   profile: ExchangeProfile;
   partnerUniversity: PartnerUniversity;
@@ -184,6 +246,9 @@ export type ExchangePlan = {
   packing: PackingPlan;
   deadlines: DeadlineItem[];
   localLife: LocalLifePlan;
+  visa: VisaPlan;
+  culture: CulturePlan;
+  academics: AcademicPlan;
   dailyLogistics: DailyLogisticsPlan;
   qna: PlanQuestionAnswer[];
   sources: SourceRef[];

@@ -1,17 +1,25 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- campus imagery is supplied as verified local WebP assets. */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import Image from "next/image";
 import * as THREE from "three";
 import type { DestinationRegion } from "@/lib/schema";
-import { getUniversityCoordinates, type ExchangeCountry } from "@/lib/exchange-map-data";
+import { getUniversityCoordinates, getUniversityRouteKey, type ExchangeCountry } from "@/lib/exchange-map-data";
+import { getUniversityImagePath } from "@/lib/university-assets";
 
 type RegionGlobeProps = {
   activeRegion: DestinationRegion;
   countries: ExchangeCountry[];
   selectedCountry: ExchangeCountry;
   isDetailOpen: boolean;
-  highlightedUniversityName?: string;
-  onCountrySelect: (country: ExchangeCountry, universityName?: string, shouldScroll?: boolean) => void;
+  highlightedUniversityKey?: string;
+  onCountrySelect: (
+    country: ExchangeCountry,
+    universityName?: string,
+    shouldScroll?: boolean,
+    routeKey?: string
+  ) => void;
 };
 
 type MarkerRecord = {
@@ -19,6 +27,7 @@ type MarkerRecord = {
   mesh: THREE.Mesh;
   kind: "country" | "university";
   universityName?: string;
+  universityRouteKey?: string;
 };
 
 const countryTemplateLabels: Record<ExchangeCountry["template"], string> = {
@@ -35,16 +44,22 @@ export function RegionGlobe({
   countries,
   selectedCountry,
   isDetailOpen,
-  highlightedUniversityName,
+  highlightedUniversityKey,
   onCountrySelect
 }: RegionGlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const fullscreenRef = useRef<HTMLDivElement>(null);
+  const fullscreenTriggerRef = useRef<HTMLButtonElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const selectedRef = useRef(selectedCountry);
   const isDetailOpenRef = useRef(isDetailOpen);
-  const highlightedUniversityNameRef = useRef(highlightedUniversityName);
+  const highlightedUniversityKeyRef = useRef(highlightedUniversityKey);
   const countriesRef = useRef(countries);
   const onCountrySelectRef = useRef(onCountrySelect);
+  const selectedUniversity = selectedCountry.universities.find(
+    (university) => getUniversityRouteKey(university) === highlightedUniversityKey
+  ) ?? selectedCountry.universities[0];
+  const selectedUniversityImage = getUniversityImagePath(selectedUniversity.name);
 
   useEffect(() => {
     selectedRef.current = selectedCountry;
@@ -55,8 +70,8 @@ export function RegionGlobe({
   }, [isDetailOpen]);
 
   useEffect(() => {
-    highlightedUniversityNameRef.current = highlightedUniversityName;
-  }, [highlightedUniversityName]);
+    highlightedUniversityKeyRef.current = highlightedUniversityKey;
+  }, [highlightedUniversityKey]);
 
   useEffect(() => {
     countriesRef.current = countries;
@@ -65,6 +80,63 @@ export function RegionGlobe({
   useEffect(() => {
     onCountrySelectRef.current = onCountrySelect;
   }, [onCountrySelect]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const dialog = fullscreenRef.current;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : fullscreenTriggerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog?.focus();
+
+    function handleFullscreenKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsFullscreen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => element.getAttribute("aria-hidden") !== "true");
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const focusIsOutside = !(document.activeElement instanceof Node) ||
+        !dialog.contains(document.activeElement);
+      if (event.shiftKey && (
+        document.activeElement === first ||
+        document.activeElement === dialog ||
+        focusIsOutside
+      )) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (
+        document.activeElement === last ||
+        document.activeElement === dialog ||
+        focusIsOutside
+      )) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleFullscreenKeydown);
+    return () => {
+      document.removeEventListener("keydown", handleFullscreenKeydown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [isFullscreen]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -169,6 +241,7 @@ export function RegionGlobe({
 
     function syncMarkers() {
       markerRecords.splice(0);
+      disposeObjectResources(markerGroup);
       markerGroup.clear();
       countriesRef.current.forEach((country) => {
         const isSelectedCountry = country.id === selectedRef.current.id;
@@ -219,6 +292,7 @@ export function RegionGlobe({
           );
           universityMarker.userData.countryId = country.id;
           universityMarker.userData.universityName = university.name;
+          universityMarker.userData.universityRouteKey = getUniversityRouteKey(university);
           universityMarker.userData.markerKind = "university";
           markerGroup.add(universityMarker);
 
@@ -228,6 +302,7 @@ export function RegionGlobe({
           );
           label.userData.countryId = country.id;
           label.userData.universityName = university.name;
+          label.userData.universityRouteKey = getUniversityRouteKey(university);
           label.userData.markerKind = "university";
           markerGroup.add(label);
 
@@ -235,7 +310,8 @@ export function RegionGlobe({
             country,
             mesh: universityMarker,
             kind: "university",
-            universityName: university.name
+            universityName: university.name,
+            universityRouteKey: getUniversityRouteKey(university)
           });
         });
       });
@@ -275,13 +351,13 @@ export function RegionGlobe({
     focusCountry(selectedRef.current);
 
     function updateMarkerMaterials() {
-      markerRecords.forEach(({ country, mesh, kind, universityName }) => {
+      markerRecords.forEach(({ country, mesh, kind, universityRouteKey: markerRouteKey }) => {
         const material = mesh.material as THREE.MeshStandardMaterial;
         const isSelected = country.id === selectedRef.current.id;
         const isHighlightedUniversity =
           kind === "university" &&
           isSelected &&
-          universityName === highlightedUniversityNameRef.current;
+          markerRouteKey === highlightedUniversityKeyRef.current;
         material.emissiveIntensity =
           kind === "country" ? (isSelected ? 2 : 0.8) : (isHighlightedUniversity ? 1.9 : 0.65);
         mesh.scale.setScalar(
@@ -354,14 +430,20 @@ export function RegionGlobe({
       const picked = intersections[0]?.object;
       const countryId = picked?.userData.countryId as string | undefined;
       const universityName = picked?.userData.universityName as string | undefined;
+      const pickedUniversityRouteKey = picked?.userData.universityRouteKey as string | undefined;
       const country = countriesRef.current.find((item) => item.id === countryId);
       if (country) {
         selectedRef.current = country;
         isDetailOpenRef.current = true;
-        highlightedUniversityNameRef.current = universityName;
+        highlightedUniversityKeyRef.current = pickedUniversityRouteKey;
         focusCountry(country);
         updateMarkerMaterials();
-        onCountrySelectRef.current(country, universityName, Boolean(universityName));
+        onCountrySelectRef.current(
+          country,
+          universityName,
+          Boolean(universityName),
+          pickedUniversityRouteKey
+        );
       }
     }
 
@@ -410,6 +492,7 @@ export function RegionGlobe({
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("wheel", onWheel);
+      disposeObjectResources(markerGroup);
       earthTexture.dispose();
       cloudTexture.dispose();
       loadedTextures.forEach((texture) => texture.dispose());
@@ -428,17 +511,26 @@ export function RegionGlobe({
 
   return (
     <div
+      ref={fullscreenRef}
       className={`globe-card globe-template-${selectedCountry.template} ${isFullscreen ? "is-fullscreen" : ""}`}
       style={{ "--country-accent": selectedCountry.accent } as CSSProperties}
-      aria-label={`Interactive exchange atlas ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
+      role={isFullscreen ? "dialog" : undefined}
+      aria-modal={isFullscreen ? "true" : undefined}
+      aria-labelledby={isFullscreen ? "exchange-atlas-heading" : undefined}
+      aria-label={isFullscreen ? undefined : `Interactive exchange atlas ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
+      tabIndex={isFullscreen ? -1 : undefined}
     >
       <div ref={mountRef} className="three-globe-mount" />
       <div className="globe-hud">
         <div>
           <span>Drag / zoom / click university markers</span>
-          <strong>{selectedCountry.name}</strong>
+          <strong id="exchange-atlas-heading">{selectedCountry.name}</strong>
         </div>
-        <button type="button" onClick={() => setIsFullscreen((value) => !value)}>
+        <button
+          ref={fullscreenTriggerRef}
+          type="button"
+          onClick={() => setIsFullscreen((value) => !value)}
+        >
           {isFullscreen ? "Exit atlas" : "Full-screen atlas"}
         </button>
       </div>
@@ -457,6 +549,15 @@ export function RegionGlobe({
       </div>
       {isDetailOpen ? (
         <aside className="globe-country-panel">
+          <div className="globe-campus-identity">
+            {selectedUniversityImage && (
+              <img src={selectedUniversityImage} alt={`${selectedUniversity.name} campus`} />
+            )}
+            <div>
+              <span>{selectedUniversity.city} / {selectedUniversity.partnership}</span>
+              <strong>{selectedUniversity.name}</strong>
+            </div>
+          </div>
           <span>{countryTemplateLabels[selectedCountry.template]}</span>
           <h3>{selectedCountry.focusLabel}</h3>
           <p>{selectedCountry.summary}</p>
@@ -466,9 +567,25 @@ export function RegionGlobe({
               <button
                 key={`${university.name}-${university.city}-${university.partnership}`}
                 type="button"
-                className={university.name === highlightedUniversityName ? "active" : ""}
-                onClick={() => onCountrySelect(selectedCountry, university.name, true)}
+                className={getUniversityRouteKey(university) === highlightedUniversityKey ? "active" : ""}
+                onClick={() => onCountrySelect(
+                  selectedCountry,
+                  university.name,
+                  true,
+                  getUniversityRouteKey(university)
+                )}
               >
+                <span className="university-hud-thumb" aria-hidden="true">
+                  {getUniversityImagePath(university.name) && (
+                    <Image
+                      src={getUniversityImagePath(university.name) as string}
+                      alt=""
+                      fill
+                      sizes="42px"
+                      loading="lazy"
+                    />
+                  )}
+                </span>
                 <strong>{university.name}</strong>
                 <span>
                   {university.city} / {university.partnership}
@@ -538,6 +655,25 @@ function createTextSprite(label: string, accent: string) {
   );
   sprite.scale.set(0.56, 0.14, 1);
   return sprite;
+}
+
+function disposeObjectResources(root: THREE.Object3D) {
+  root.traverse((object) => {
+    const renderable = object as THREE.Mesh | THREE.Sprite;
+    if ("geometry" in renderable && renderable.geometry) {
+      renderable.geometry.dispose();
+    }
+
+    const materials = "material" in renderable
+      ? (Array.isArray(renderable.material) ? renderable.material : [renderable.material])
+      : [];
+    materials.forEach((material) => {
+      for (const value of Object.values(material)) {
+        if (value instanceof THREE.Texture) value.dispose();
+      }
+      material.dispose();
+    });
+  });
 }
 
 function roundRect(

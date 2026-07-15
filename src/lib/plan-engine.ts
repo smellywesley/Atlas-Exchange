@@ -1,8 +1,10 @@
 import { londonPartners } from "./demo-data";
 import { exchangeCountries, type ExchangeCountry, type ExchangeUniversity } from "./exchange-map-data";
 import { buildLogisticsAgentArtifacts } from "./logistics-agent";
+import { getCulturalGuidance } from "./cultural-guidance";
 import { getProviderStatus } from "./provider-status";
 import { searchLondonAccommodation } from "./search-provider";
+import { getVisaGuidance } from "./visa-guidance";
 import type {
   BudgetPlan,
   DeadlineItem,
@@ -10,7 +12,8 @@ import type {
   ExchangeProfile,
   ExchangeProfileInput,
   LocalLifePlan,
-  PackingPlan
+  PackingPlan,
+  SourceRef
 } from "./schema";
 
 const regionLabels = {
@@ -73,6 +76,8 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
     localLife,
     sources: planSources
   });
+  const contributions = buildFeatureContributions(profile);
+  const featureSources = buildFeatureSources(contributions);
 
   return {
     profile,
@@ -82,9 +87,10 @@ export function buildLondonPlan(input: ExchangeProfileInput): ExchangePlan {
     packing,
     deadlines,
     localLife,
+    ...contributions,
     dailyLogistics: logisticsAgent.dailyLogistics,
     qna: logisticsAgent.qna,
-    sources: planSources,
+    sources: [...planSources, ...featureSources],
     generatedAt: new Date().toISOString()
   };
 }
@@ -174,6 +180,8 @@ export function buildAtlasPlanResponse(
     localLife,
     sources
   });
+  const contributions = buildFeatureContributions(profile);
+  const featureSources = buildFeatureSources(contributions);
 
   return {
     plan: {
@@ -184,12 +192,80 @@ export function buildAtlasPlanResponse(
       packing,
       deadlines,
       localLife,
+      ...contributions,
       dailyLogistics: logisticsAgent.dailyLogistics,
       qna: logisticsAgent.qna,
-      sources,
+      sources: [...sources, ...featureSources],
       generatedAt: new Date().toISOString()
     },
     providerStatus
+  };
+}
+
+function buildFeatureSources(
+  contributions: ReturnType<typeof buildFeatureContributions>
+): SourceRef[] {
+  const fetchedAt = new Date().toISOString();
+  const sources: SourceRef[] = [];
+  if (contributions.visa.source) {
+    sources.push({
+      id: `visa-${slugify(contributions.visa.destinationCountry)}`,
+      title: contributions.visa.source.title,
+      url: contributions.visa.source.url,
+      provider: contributions.visa.source.authority,
+      fetchedAt,
+      confidence: "high",
+      snippet: "Official visa information entry point; Atlas does not decide eligibility."
+    });
+  }
+  if (contributions.culture.source) {
+    sources.push({
+      id: `culture-${slugify(contributions.culture.destinationCountry)}-${slugify(contributions.culture.destinationCity)}`,
+      title: contributions.culture.source.title,
+      url: contributions.culture.source.url,
+      provider: "Official destination guidance",
+      fetchedAt,
+      confidence: "medium",
+      snippet: "Reviewed orientation source; recheck current local guidance before departure."
+    });
+  }
+  return sources;
+}
+
+function buildFeatureContributions(profile: ExchangeProfile) {
+  const visaGuidance = getVisaGuidance(profile.destinationCountry);
+  const culture = getCulturalGuidance({
+    city: profile.destinationCity,
+    country: profile.destinationCountry
+  });
+
+  return {
+    visa: {
+      destinationCountry: profile.destinationCountry,
+      decision: visaGuidance.visaDecision,
+      reviewStatus: visaGuidance.reviewStatus,
+      notices: visaGuidance.notices,
+      source: visaGuidance.source
+        ? {
+            authority: visaGuidance.source.authority,
+            title: visaGuidance.source.title,
+            url: visaGuidance.source.url
+          }
+        : undefined
+    },
+    culture,
+    academics: {
+      academicYear: profile.academicYear || undefined,
+      modules: (profile.nusModuleCodes ?? []).map((moduleCode) => ({
+        moduleCode,
+        academicYear: profile.academicYear ?? "",
+        mappingStatus: "candidate-only" as const,
+        approvalRequired: true as const,
+        lookupStatus: "not-requested" as const
+      })),
+      notice:
+        "NUSMods records support module discovery only. Faculty approval is still required for every mapping."
+    }
   };
 }
 

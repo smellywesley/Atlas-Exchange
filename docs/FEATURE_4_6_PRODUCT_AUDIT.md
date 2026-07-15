@@ -4,6 +4,12 @@ Date: 2026-07-12
 
 Status: NOT READY for emailed or downloadable plans
 
+## 2026-07-14 Remediation Addendum
+
+The confirmed destination-integrity failures below have been fixed: Stanford no longer receives London language, Oxford no longer falls back to UCL, the intake heading follows the selected destination, and unsupported deadlines no longer pretend to have exact dates. PDF and allowlisted demo email now regenerate the selected plan server-side.
+
+The audit is still correct about the remaining provider gaps. Global accommodation results are discovery links rather than verified listings; market rent, commute, availability, weather, and place facts must not be presented as sourced until licensed providers are connected. Public report delivery also remains blocked on recipient ownership verification and shared rate limiting. The current verdict is therefore: READY FOR A CONTROLLED SINGLE-INSTANCE HACKATHON DEMO, NOT READY FOR PUBLIC PRODUCTION.
+
 ## Verdict
 
 The current app is a strong interactive prototype, but features 4-6 are still presentation-first rather than decision-ready. The same `ExchangePlan` shape connects accommodation, budget, packing, local life, and Q&A, which is the right foundation. However, several generated values are fixed, derived from the user's own budget, or backed only by generic search links.

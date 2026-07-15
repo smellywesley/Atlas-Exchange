@@ -50,6 +50,37 @@ export async function renderPlanPdf(plan: ExchangePlan) {
   row(context, "Travel style", plan.profile.travelStyle);
   paragraph(context, plan.budget.notes.join(" "));
 
+  section(context, "Visa and entry check");
+  row(context, "Decision status", plan.visa.decision.replace(/-/g, " "));
+  row(context, "Official-source status", plan.visa.reviewStatus.replace(/-/g, " "));
+  paragraph(context, plan.visa.notices.join(" "));
+  if (plan.visa.source) linkLine(context, plan.visa.source.url);
+
+  section(context, "Academic module candidates");
+  paragraph(context, plan.academics.notice);
+  if (plan.academics.modules.length === 0) {
+    paragraph(context, "No NUS module codes were supplied.");
+  } else {
+    plan.academics.modules.forEach((module) => {
+      drawText(context, `${module.moduleCode}${module.title ? `: ${module.title}` : ""}`, {
+        font: bold,
+        size: 9
+      });
+      paragraph(context, `${module.lookupStatus.replace(/-/g, " ")} | faculty approval required`);
+      if (module.sourceUrl) linkLine(context, module.sourceUrl);
+    });
+  }
+
+  section(context, "Cultural orientation");
+  row(context, "Review status", plan.culture.reviewStatus.replace(/-/g, " "));
+  paragraph(context, [
+    ...plan.culture.etiquetteTips,
+    ...plan.culture.transportNotes,
+    ...plan.culture.paymentNotes,
+    ...plan.culture.notices
+  ].join(" "));
+  if (plan.culture.source) linkLine(context, plan.culture.source.url);
+
   section(context, "Accommodation");
   const topAccommodation = plan.accommodation.rankedOptions[0];
   if (topAccommodation) {

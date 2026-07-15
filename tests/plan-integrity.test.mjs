@@ -47,6 +47,7 @@ function loadTypeScriptModule(filePath) {
 
 const planEngine = loadTypeScriptModule("src/lib/plan-engine.ts");
 const exchangeMap = loadTypeScriptModule("src/lib/exchange-map-data.ts");
+const schema = loadTypeScriptModule("src/lib/schema.ts");
 
 const baseInput = {
   monthlyBudgetSgd: 2300,
@@ -141,4 +142,56 @@ test("the default London partner ID resolves without a country field", () => {
 
   assert.equal(plan.partnerUniversity.name, "University College London");
   assert.equal(plan.profile.destinationCity, "London");
+});
+
+test("profile validation enforces academic-year and module invariants", () => {
+  assert.equal(schema.exchangeProfileInputSchema.safeParse({
+    ...baseInput,
+    academicYear: "1999-2000",
+    nusModuleCodes: ["CS1010S"]
+  }).success, false);
+  assert.equal(schema.exchangeProfileInputSchema.safeParse({
+    ...baseInput,
+    academicYear: "2000-2001",
+    nusModuleCodes: ["CS1010S"]
+  }).success, true);
+  assert.equal(schema.exchangeProfileInputSchema.safeParse({
+    ...baseInput,
+    academicYear: "2100-2101",
+    nusModuleCodes: ["CS1010S"]
+  }).success, true);
+  assert.equal(schema.exchangeProfileInputSchema.safeParse({
+    ...baseInput,
+    academicYear: "2026-2028",
+    nusModuleCodes: ["CS1010S"]
+  }).success, false);
+  assert.equal(schema.exchangeProfileInputSchema.safeParse({
+    ...baseInput,
+    academicYear: "",
+    nusModuleCodes: ["CS1010S"]
+  }).success, false);
+  assert.equal(schema.exchangeProfileInputSchema.safeParse({
+    ...baseInput,
+    academicYear: "2026-2027",
+    nusModuleCodes: ["cs1010s", "CS1010S"]
+  }).success, false);
+});
+
+test("duplicate university names keep distinct partnership route keys", () => {
+  const newZealand = exchangeMap.exchangeCountries.find((country) => country.id === "new-zealand");
+  assert.ok(newZealand);
+  const aucklandRoutes = newZealand.universities.filter(
+    (university) => university.name === "University of Auckland"
+  );
+  assert.equal(aucklandRoutes.length, 2);
+  assert.equal(new Set(aucklandRoutes.map(exchangeMap.getUniversityRouteKey)).size, 2);
+});
+
+test("visa and culture sources remain attached to the selected destination", () => {
+  const { plan } = planEngine.buildPlanResponseForInput(inputFor("INSA Lyon"));
+  assert.equal(plan.visa.destinationCountry, "France");
+  assert.equal(plan.culture.destinationCity, "Lyon");
+  assert.equal(plan.sources.some((source) => source.url === plan.visa.source.url), true);
+  assert.equal(plan.sources.some((source) => source.url === plan.culture.source.url), true);
+  assert.equal(plan.sources.some((source) => source.title.includes("London")), false);
 });

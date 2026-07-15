@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   ArrowSquareOut,
   CalendarCheck,
@@ -21,7 +21,7 @@ type PlanDashboardProps = {
   isPlanLoading?: boolean;
 };
 
-const tabs = ["Overview", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life", "Daily Plan", "Q&A"] as const;
+const tabs = ["Overview", "Visa", "Modules", "Culture", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life", "Daily Plan", "Q&A"] as const;
 
 export function PlanDashboard({ plan, providerStatus, isPlanLoading = false }: PlanDashboardProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Accommodation");
@@ -80,6 +80,9 @@ export function PlanDashboard({ plan, providerStatus, isPlanLoading = false }: P
         aria-labelledby={`plan-tab-${activeTabId}`}
       >
         {activeTab === "Overview" && <Overview plan={plan} />}
+        {activeTab === "Visa" && <Visa plan={plan} />}
+        {activeTab === "Modules" && <Modules plan={plan} />}
+        {activeTab === "Culture" && <Culture plan={plan} />}
         {activeTab === "Accommodation" && <Accommodation plan={plan} />}
         {activeTab === "Budget" && <Budget plan={plan} />}
         {activeTab === "Packing" && <Packing plan={plan} />}
@@ -92,6 +95,89 @@ export function PlanDashboard({ plan, providerStatus, isPlanLoading = false }: P
       <ProviderBanner providerStatus={providerStatus} />
       <ReportDelivery plan={plan} isPlanLoading={isPlanLoading} />
     </section>
+  );
+}
+
+function Visa({ plan }: { plan: ExchangePlan }) {
+  return (
+    <div className="evidence-panel-grid">
+      <article className="evidence-card">
+        <span>{plan.visa.reviewStatus}</span>
+        <h4>Official entry check for {plan.visa.destinationCountry}</h4>
+        <p>Visa decision: not evaluated. Complete nationality and stay checks only on the linked official service.</p>
+        {plan.visa.notices.map((notice) => <p key={notice}>{notice}</p>)}
+        {plan.visa.source && (
+          <a href={plan.visa.source.url} target="_blank" rel="noreferrer" className="evidence-link">
+            {plan.visa.source.authority}: {plan.visa.source.title}
+            <ArrowSquareOut size={18} />
+          </a>
+        )}
+      </article>
+    </div>
+  );
+}
+
+function Modules({ plan }: { plan: ExchangePlan }) {
+  return (
+    <div className="evidence-panel-grid">
+      <article className="evidence-card">
+        <span>candidate-only / faculty approval required</span>
+        <h4>NUS module discovery</h4>
+        <p>{plan.academics.notice}</p>
+      </article>
+      {plan.academics.modules.length === 0 ? (
+        <article className="evidence-card muted-evidence">
+          <span>not requested</span>
+          <h4>Add an academic year and up to six NUS module codes</h4>
+          <p>The planner will retrieve current NUSMods records without pretending they are approved host mappings.</p>
+        </article>
+      ) : plan.academics.modules.map((module) => (
+        <article className="evidence-card" key={module.moduleCode}>
+          <span>{module.lookupStatus} / {module.academicYear}</span>
+          <h4>{module.moduleCode}{module.title ? `: ${module.title}` : ""}</h4>
+          <p>
+            {module.moduleCredit ? `${module.moduleCredit} MCs. ` : ""}
+            {module.semesters?.length ? `Listed for semester ${module.semesters.join(", ")}. ` : ""}
+            Mapping approval is still required.
+          </p>
+          {module.warning && <p>{module.warning}</p>}
+          {module.sourceUrl && (
+            <a href={module.sourceUrl} target="_blank" rel="noreferrer" className="evidence-link">
+              Open live NUSMods record <ArrowSquareOut size={18} />
+            </a>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function Culture({ plan }: { plan: ExchangePlan }) {
+  const groups = [
+    ["Etiquette", plan.culture.etiquetteTips],
+    ["Food", plan.culture.foodNotes],
+    ["Transport", plan.culture.transportNotes],
+    ["Payments", plan.culture.paymentNotes]
+  ] as const;
+  return (
+    <div className="evidence-panel-grid">
+      <article className="evidence-card">
+        <span>{plan.culture.reviewStatus}</span>
+        <h4>{plan.culture.destinationCity} local orientation</h4>
+        {plan.culture.notices.map((notice) => <p key={notice}>{notice}</p>)}
+        {plan.culture.source && (
+          <a href={plan.culture.source.url} target="_blank" rel="noreferrer" className="evidence-link">
+            {plan.culture.source.title} <ArrowSquareOut size={18} />
+          </a>
+        )}
+      </article>
+      {groups.map(([label, items]) => items.length > 0 && (
+        <article className="evidence-card" key={label}>
+          <span>{label}</span>
+          {items.map((item) => <p key={item}>{item}</p>)}
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -275,8 +361,81 @@ function DailyPlan({ plan }: { plan: ExchangePlan }) {
 }
 
 function Qna({ plan }: { plan: ExchangePlan }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [status, setStatus] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const requestController = useRef<AbortController | null>(null);
+  const activePlanId = useRef(plan.generatedAt);
+
+  useEffect(() => {
+    activePlanId.current = plan.generatedAt;
+    requestController.current?.abort();
+    setQuestion("");
+    setAnswer("");
+    setStatus("");
+    setIsLoading(false);
+  }, [plan.generatedAt]);
+
+  useEffect(() => () => requestController.current?.abort(), []);
+
+  async function submitQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (question.trim().length < 3) return;
+    const planId = plan.generatedAt;
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
+    setAnswer("");
+    setIsLoading(true);
+    setStatus("Checking the plan evidence...");
+    try {
+      const response = await fetch("/api/qna", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          question,
+          context: { classification: "non-pii", evidence: buildQnaEvidence(plan) }
+        })
+      });
+      const payload = await response.json() as { answer?: string; error?: string; cacheStatus?: string };
+      if (!response.ok || !payload.answer) throw new Error(payload.error ?? "Q&A failed");
+      if (activePlanId.current === planId) {
+        setAnswer(payload.answer);
+        setStatus(`Evidence-only answer / cache ${payload.cacheStatus ?? "unknown"}`);
+      }
+    } catch (error) {
+      if (activePlanId.current === planId && !isAbortError(error)) {
+        setAnswer("");
+        setStatus(error instanceof Error ? error.message : "Q&A failed");
+      }
+    } finally {
+      if (activePlanId.current === planId) setIsLoading(false);
+    }
+  }
+
   return (
     <div className="qna-stack">
+      <form className="qna-ask" onSubmit={submitQuestion}>
+        <label htmlFor="plan-question">Ask about this plan</label>
+        <div>
+          <input
+            id="plan-question"
+            value={question}
+            maxLength={240}
+            placeholder={`Ask about ${plan.profile.destinationCity} housing, visa, modules, packing, or local life`}
+            onChange={(event) => setQuestion(event.target.value)}
+          />
+          <button className="button primary" type="submit" disabled={isLoading}>
+            {isLoading ? "Checking" : "Ask"}
+          </button>
+        </div>
+        {status && <small role="status">{status}</small>}
+        <div className="qna-live" aria-live="polite" aria-atomic="true">
+          {answer && <p className="qna-answer">{answer}</p>}
+        </div>
+      </form>
       {plan.qna.map((item) => (
         <article key={item.id} className="qna-card">
           <div>
@@ -297,6 +456,64 @@ function Qna({ plan }: { plan: ExchangePlan }) {
       </article>
     </div>
   );
+}
+
+function buildQnaEvidence(plan: ExchangePlan) {
+  return [
+    {
+      id: "visa-status",
+      topic: "visa",
+      text: `Visa eligibility is not evaluated. Review status for ${plan.profile.destinationCountry}: ${plan.visa.reviewStatus}.`,
+      sourceRefIds: sourceIdsForUrl(plan, plan.visa.source?.url)
+    },
+    ...plan.academics.modules.map((module) => ({
+      id: `module-${module.moduleCode}`,
+      topic: "modules",
+      text: `${module.moduleCode}${module.title ? ` is ${module.title}` : ""}; it is candidate-only and requires faculty approval.`,
+      sourceRefIds: sourceIdsForUrl(plan, module.sourceUrl)
+    })),
+    {
+      id: "culture-status",
+      topic: "culture",
+      text: `${plan.profile.destinationCity} cultural guidance status is ${plan.culture.reviewStatus}. ${plan.culture.etiquetteTips.join(" ")}`,
+      sourceRefIds: sourceIdsForUrl(plan, plan.culture.source?.url)
+    },
+    ...plan.accommodation.rankedOptions.slice(0, 3).map((option, index) => ({
+      id: `housing-${index}`,
+      topic: "accommodation",
+      text: `${option.title}: ${option.rankingReasons.join(" ")}`,
+      sourceRefIds: option.sourceRefIds
+    })),
+    {
+      id: "budget-summary",
+      topic: "budget",
+      text: `The monthly planning envelope is SGD ${plan.budget.monthlyEstimateSgd} with ${plan.budget.confidence} confidence.`,
+      sourceRefIds: []
+    },
+    ...plan.packing.essentials.slice(0, 5).map((item, index) => ({
+      id: `packing-${index}`,
+      topic: "packing",
+      text: `${item.label}: ${item.reason}`,
+      sourceRefIds: []
+    })),
+    ...plan.deadlines.slice(0, 5).map((item, index) => ({
+      id: `deadline-${index}`,
+      topic: "deadlines",
+      text: `${item.title}: ${item.dueDate ?? "official date not imported"}.`,
+      sourceRefIds: item.sourceRefIds
+    })),
+    ...plan.localLife.places.slice(0, 8).map((place, index) => ({
+      id: `local-${index}`,
+      topic: "local-life",
+      text: `${place.title}: ${place.whyRecommended}`,
+      sourceRefIds: place.sourceRefIds
+    }))
+  ];
+}
+
+function sourceIdsForUrl(plan: ExchangePlan, url: string | undefined) {
+  if (!url) return [];
+  return plan.sources.filter((source) => source.url === url).map((source) => source.id);
 }
 
 function tabId(tab: (typeof tabs)[number]) {

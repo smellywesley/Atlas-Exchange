@@ -8,7 +8,8 @@ export default function Home() {
     housingPreference: "shared",
     travelStyle: "balanced",
     plannedActivities: ["museums", "football", "weekend rail trips"],
-    dietaryNeeds: []
+    dietaryNeeds: [],
+    nusModuleCodes: []
   });
 
   return (

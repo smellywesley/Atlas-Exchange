@@ -2,6 +2,13 @@
 
 Add one real campus image per university to this folder. Use the preferred filename below so Atlas Exchange can map each HUD card without guessing.
 
+Import status on 2026-07-14: all 92 listed images are present at 1600x1000 and wired into the university cards, selected-campus hero, and globe HUD. The machine-readable source catalog is `sources-and-permissions.csv` and `sources-and-permissions.json`.
+
+Attribution follow-up remains for two supplied records:
+
+- National Cheng Kung University: add license URL or usage terms.
+- University of Washington, Seattle: add author/creator.
+
 Image requirements:
 
 - Preferred format: WebP

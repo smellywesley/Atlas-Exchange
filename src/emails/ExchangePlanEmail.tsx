@@ -34,6 +34,17 @@ export function ExchangePlanEmail({ plan }: { plan: ExchangePlan }) {
               {plan.budget.notes[0]}
             </Text>
           </Section>
+          <Section style={{ border: "1px solid #d9e3e2", padding: "16px", margin: "20px 0" }}>
+            <Text style={{ margin: 0, color: "#142021", fontWeight: 700 }}>
+              Visa and academic checks
+            </Text>
+            <Text style={{ color: "#536567", lineHeight: "1.5" }}>
+              Visa decision: not evaluated. Official-source status: {plan.visa.reviewStatus}.
+            </Text>
+            <Text style={{ color: "#536567", lineHeight: "1.5" }}>
+              {plan.academics.modules.length} NUS module candidate(s). Every mapping still requires faculty approval.
+            </Text>
+          </Section>
           <Button href={plan.accommodation.rankedOptions[0]?.url ?? "https://www.google.com/maps"} style={{ backgroundColor: "#16899a", color: "#ffffff", padding: "12px 18px", textDecoration: "none" }}>
             Check accommodation source
           </Button>
