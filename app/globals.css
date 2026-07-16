@@ -1362,6 +1362,10 @@ section[id] {
   padding: 22px;
 }
 
+.intake-lock-fieldset {
+  display: contents;
+}
+
 .intake-panel h3,
 .dashboard-panel h3 {
   margin: 0;
@@ -1632,7 +1636,8 @@ section[id] {
   font-weight: 800;
 }
 
-.report-actions button:disabled {
+.report-actions button:disabled,
+.report-actions button[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.5;
 }

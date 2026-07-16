@@ -10,10 +10,10 @@ import {
   readBoundedJson,
   takeGlobalRateLimit,
   takeRateLimit,
-  takeTrustedClientRateLimit,
-  validHttpOrigin
+  takeTrustedClientRateLimit
 } from "@/lib/request-guard";
 import { renderPlanPdf } from "@/lib/report-pdf";
+import { getReportEmailConfig } from "@/lib/report-email-config";
 import { exchangeProfileInputSchema } from "@/lib/schema";
 import { enrichPlanWithLiveAcademicData } from "@/lib/plan-enrichment";
 
@@ -22,17 +22,8 @@ export const runtime = "nodejs";
 const emailReportSchema = z.object({ profile: exchangeProfileInputSchema });
 
 export async function POST(request: Request) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  const allowedOrigin = validHttpOrigin(process.env.APP_ORIGIN);
-  const allowlist = new Set(
-    (process.env.REPORT_EMAIL_ALLOWLIST ?? "")
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean)
-  );
-
-  if (!apiKey || !from || !allowedOrigin || allowlist.size === 0) {
+  const config = getReportEmailConfig();
+  if (!config) {
     return jsonNoStore(
       { error: "Email delivery is not configured", fallback: "Download the PDF report instead." },
       503
@@ -41,7 +32,7 @@ export async function POST(request: Request) {
   if (request.headers.get("sec-fetch-site") === "cross-site") {
     return jsonNoStore({ error: "Cross-site email delivery is not allowed." }, 403);
   }
-  if (!hasExactRequestOrigin(request, allowedOrigin)) {
+  if (!hasExactRequestOrigin(request, config.allowedOrigin)) {
     return jsonNoStore({ error: "Email delivery origin is not allowed." }, 403);
   }
 
@@ -59,7 +50,7 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: "A student email is required." }, 400);
   }
 
-  if (!allowlist.has(studentEmail.toLowerCase())) {
+  if (!config.allowlist.has(studentEmail.toLowerCase())) {
     return jsonNoStore(
       { error: "This student email is not enabled for demo report delivery." },
       403
@@ -110,9 +101,9 @@ export async function POST(request: Request) {
     const idempotencyKey = createHash("sha256")
       .update(`${studentEmail.toLowerCase()}:${JSON.stringify(parsed.data.profile)}`)
       .digest("hex");
-    const result = await new Resend(apiKey).emails.send(
+    const result = await new Resend(config.apiKey).emails.send(
       {
-        from,
+        from: config.from,
         to: [studentEmail],
         subject: `${plan.partnerUniversity.name} exchange plan`,
         html,

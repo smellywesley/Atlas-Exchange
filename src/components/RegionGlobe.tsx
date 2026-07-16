@@ -14,6 +14,7 @@ type RegionGlobeProps = {
   selectedCountry: ExchangeCountry;
   isDetailOpen: boolean;
   highlightedUniversityKey?: string;
+  disabled?: boolean;
   onCountrySelect: (
     country: ExchangeCountry,
     universityName?: string,
@@ -45,6 +46,7 @@ export function RegionGlobe({
   selectedCountry,
   isDetailOpen,
   highlightedUniversityKey,
+  disabled = false,
   onCountrySelect
 }: RegionGlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,8 @@ export function RegionGlobe({
   const highlightedUniversityKeyRef = useRef(highlightedUniversityKey);
   const countriesRef = useRef(countries);
   const onCountrySelectRef = useRef(onCountrySelect);
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
   const selectedUniversity = selectedCountry.universities.find(
     (university) => getUniversityRouteKey(university) === highlightedUniversityKey
   ) ?? selectedCountry.universities[0];
@@ -399,6 +403,7 @@ export function RegionGlobe({
     }
 
     function onPointerDown(event: PointerEvent) {
+      if (disabledRef.current) return;
       dragState.active = true;
       dragState.moved = false;
       dragState.startX = event.clientX;
@@ -409,6 +414,7 @@ export function RegionGlobe({
     }
 
     function onPointerMove(event: PointerEvent) {
+      if (disabledRef.current) return;
       if (!dragState.active) {
         return;
       }
@@ -435,6 +441,7 @@ export function RegionGlobe({
       } catch {
         // The browser may release capture automatically during fast gestures.
       }
+      if (disabledRef.current) return;
       if (dragState.moved) {
         return;
       }
@@ -461,6 +468,19 @@ export function RegionGlobe({
       }
     }
 
+    function onPointerCancel(event: PointerEvent) {
+      dragState.active = false;
+      try {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+    }
+
+    function onLostPointerCapture() {
+      dragState.active = false;
+    }
+
     function onWheel(event: WheelEvent) {
       event.preventDefault();
       targetZoom = THREE.MathUtils.clamp(targetZoom + event.deltaY * 0.003, 3.35, 5.8);
@@ -469,6 +489,8 @@ export function RegionGlobe({
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
     renderer.domElement.addEventListener("pointermove", onPointerMove);
     renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointercancel", onPointerCancel);
+    renderer.domElement.addEventListener("lostpointercapture", onLostPointerCapture);
     renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
 
     const animate = () => {
@@ -505,6 +527,8 @@ export function RegionGlobe({
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel", onPointerCancel);
+      renderer.domElement.removeEventListener("lostpointercapture", onLostPointerCapture);
       renderer.domElement.removeEventListener("wheel", onWheel);
       renderer.domElement.removeEventListener("webglcontextlost", handleContextLost);
       disposeObjectResources(markerGroup);
@@ -533,6 +557,7 @@ export function RegionGlobe({
       aria-modal={isFullscreen ? "true" : undefined}
       aria-labelledby={isFullscreen ? "exchange-atlas-heading" : undefined}
       aria-label={isFullscreen ? undefined : `Interactive exchange atlas ${isDetailOpen ? `focused on ${selectedCountry.name}` : "ready for country selection"}`}
+      aria-busy={disabled || undefined}
       tabIndex={isFullscreen ? -1 : undefined}
     >
       <div ref={mountRef} className="three-globe-mount" aria-hidden="true" />
@@ -561,6 +586,7 @@ export function RegionGlobe({
             type="button"
             className={country.id === selectedCountry.id ? "active" : ""}
             aria-pressed={country.id === selectedCountry.id}
+            disabled={disabled}
             onClick={() => onCountrySelect(country)}
           >
             <span style={{ "--country-accent": country.accent } as CSSProperties} />
@@ -589,6 +615,7 @@ export function RegionGlobe({
                 key={`${university.name}-${university.city}-${university.partnership}`}
                 type="button"
                 className={getUniversityRouteKey(university) === highlightedUniversityKey ? "active" : ""}
+                disabled={disabled}
                 onClick={() => onCountrySelect(
                   selectedCountry,
                   university.name,

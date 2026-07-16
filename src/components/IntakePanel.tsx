@@ -6,9 +6,10 @@ import type { ExchangePlan, ExchangeProfileInput } from "@/lib/schema";
 type IntakePanelProps = {
   plan: ExchangePlan;
   onSubmit: (input: ExchangeProfileInput) => void;
+  disabled?: boolean;
 };
 
-export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
+export function IntakePanel({ plan, onSubmit, disabled = false }: IntakePanelProps) {
   const [budget, setBudget] = useState(plan.profile.monthlyBudgetSgd);
   const [months, setMonths] = useState(plan.profile.stayLengthMonths);
   const [housing, setHousing] = useState(plan.profile.housingPreference);
@@ -25,6 +26,7 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (disabled) return;
     onSubmit({
       partnerUniversityId: plan.profile.partnerUniversityId,
       monthlyBudgetSgd: budget,
@@ -42,7 +44,13 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
   }
 
   return (
-    <form className="intake-panel" onSubmit={submit}>
+    <form
+      className="intake-panel"
+      onSubmit={submit}
+      aria-busy={disabled || undefined}
+      aria-describedby={disabled ? "intake-report-lock" : undefined}
+    >
+      <fieldset className="intake-lock-fieldset" disabled={disabled}>
       <div>
         <span className="panel-label">Student intake</span>
         <h3>{plan.profile.destinationCity} exchange requirements</h3>
@@ -184,6 +192,12 @@ export function IntakePanel({ plan, onSubmit }: IntakePanelProps) {
       <button className="button primary full-width" type="submit">
         Regenerate plan
       </button>
+      </fieldset>
+      {disabled && (
+        <p id="intake-report-lock" role="status">
+          Plan inputs are temporarily locked while the current report is prepared.
+        </p>
+      )}
     </form>
   );
 }

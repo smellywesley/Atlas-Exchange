@@ -12,6 +12,7 @@ const DEFAULT_MAX_CACHE_ENTRIES = 128;
 const DEFAULT_MAX_CONCURRENT_FETCHES = 8;
 const DEFAULT_MAX_FETCHES_PER_WINDOW = 120;
 const DEFAULT_FETCH_WINDOW_MS = 60_000;
+const TRANSIENT_FETCH_ATTEMPTS = 2;
 
 const moduleCodeSchema = z
   .string()
@@ -201,24 +202,31 @@ export function createNusModsClient(options: NusModsClientOptions = {}) {
   let fetchesInWindow = 0;
   let fetchWindowStartedAt = now();
 
-  function reserveFetch() {
-    const checkedAt = now();
-    if (checkedAt - fetchWindowStartedAt >= fetchWindowMs) {
-      fetchWindowStartedAt = checkedAt;
-      fetchesInWindow = 0;
-    }
-    if (activeFetches >= maxConcurrentFetches || fetchesInWindow >= maxFetchesPerWindow) {
+  function reserveLookup() {
+    if (activeFetches >= maxConcurrentFetches) {
       throw new NusModsError("NUSMods lookup capacity is temporarily exhausted.", "capacity");
     }
 
     activeFetches += 1;
-    fetchesInWindow += 1;
     let released = false;
     return () => {
       if (released) return;
       released = true;
       activeFetches -= 1;
     };
+  }
+
+  function reserveAttempt() {
+    const checkedAt = now();
+    if (checkedAt - fetchWindowStartedAt >= fetchWindowMs) {
+      fetchWindowStartedAt = checkedAt;
+      fetchesInWindow = 0;
+    }
+    if (fetchesInWindow >= maxFetchesPerWindow) {
+      throw new NusModsError("NUSMods lookup capacity is temporarily exhausted.", "capacity");
+    }
+
+    fetchesInWindow += 1;
   }
 
   function prune(expirationTime: number) {
@@ -236,12 +244,13 @@ export function createNusModsClient(options: NusModsClientOptions = {}) {
   }
 
   async function fetchCandidate(lookup: NusModsLookup): Promise<AcademicModuleCandidate> {
-    const releaseFetch = reserveFetch();
+    const releaseLookup = reserveLookup();
     const url = moduleUrl(lookup);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    try {
+    async function requestCandidate(): Promise<AcademicModuleCandidate> {
+      reserveAttempt();
       const response = await fetchImpl(url, {
         cache: "no-store",
         headers: { accept: "application/json" },
@@ -280,15 +289,29 @@ export function createNusModsClient(options: NusModsClientOptions = {}) {
           fetchedAt
         }
       };
+    }
+
+    try {
+      for (let attempt = 1; attempt <= TRANSIENT_FETCH_ATTEMPTS; attempt += 1) {
+        try {
+          return await requestCandidate();
+        } catch (error) {
+          if (controller.signal.aborted) {
+            throw new NusModsError("NUSMods request timed out.", "timeout");
+          }
+
+          const retryable = !(error instanceof NusModsError);
+          if (!retryable || attempt === TRANSIENT_FETCH_ATTEMPTS) throw error;
+        }
+      }
+
+      throw new NusModsError("NUSMods request failed.", "upstream");
     } catch (error) {
       if (error instanceof NusModsError) throw error;
-      if (controller.signal.aborted) {
-        throw new NusModsError("NUSMods request timed out.", "timeout");
-      }
       throw new NusModsError("NUSMods request failed.", "upstream");
     } finally {
       clearTimeout(timer);
-      releaseFetch();
+      releaseLookup();
     }
   }
 

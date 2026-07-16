@@ -34,7 +34,7 @@ For the hackathon demo, London is still the most source-complete path. Global ro
 - Searchable partner-university cards across every included country and partnership route.
 - Ninety-two local 1600x1000 campus images wired into the globe HUD, selected-campus hero, and university cards.
 - Student intake for dates, budget, stay length, housing, dietary needs, planned activities, travel style, and report email.
-- Candidate-only NUSMods module lookup with bounded caching, single-flight request coalescing, process-wide concurrency control, and an outbound-call budget.
+- Candidate-only NUSMods module lookup with one bounded transient retry, bounded caching, single-flight request coalescing, process-wide concurrency control, and an outbound-call budget.
 - Destination-specific official visa sources that never claim to issue a visa decision.
 - Reviewed cultural preparation for supported cities, with an explicit `needs-review` state elsewhere.
 - Evidence-only deterministic Q&A with bounded caching and no PII input.
@@ -167,7 +167,7 @@ npm run video:render
 
 ### `GET /api/status`
 
-Returns the current provider mode and cost guardrails.
+Returns the current provider mode, cost guardrails, and report-delivery readiness. The browser refreshes this no-store status at runtime so the PDF and email controls reflect the deployed environment rather than a build-time assumption.
 
 The current route reports `mock`: deterministic planning, live platform links, and zero OpenAI calls. The `hybrid` and `openai` schema values are reserved for future provider implementations; adding credentials alone does not activate or advertise them.
 
@@ -193,6 +193,12 @@ Example body:
 
 Looks up one NUS module by `academicYear` and `moduleCode`. Results are review candidates only; Atlas Exchange never presents them as an approved host-university mapping.
 
+The server must be able to reach `https://api.nusmods.com`. A transient cold-cache transport failure is retried once; a sustained network outage is reported as unavailable rather than replaced with invented module data. For a direct health check:
+
+```text
+http://localhost:3003/api/nusmods?academicYear=2026-2027&moduleCode=CS1010S
+```
+
 ### `POST /api/qna`
 
 Answers a planning question only from the non-PII evidence supplied by the current generated plan. Unsupported questions return an explicit evidence gap instead of a fabricated answer.
@@ -210,6 +216,8 @@ Regenerates a validated plan server-side and returns a multi-page PDF with click
 ### `POST /api/report/email`
 
 Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, an exact `REPORT_EMAIL_ALLOWLIST`, and canonical `APP_ORIGIN` such as `https://atlas-exchange.vercel.app` (no trailing slash). Without all four, the route remains disabled and the UI falls back to PDF download.
+
+`EMAIL_FROM` must be a sender verified by the configured Resend account. The allowlist should contain only the student test addresses approved for the demo; this is intentionally not an open email relay.
 
 ## Architecture
 

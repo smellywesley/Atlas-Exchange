@@ -31,12 +31,13 @@ import {
   getUniversityRouteKey
 } from "@/lib/exchange-map-data";
 import { getUniversityAsset, getUniversityImagePath } from "@/lib/university-assets";
-import type {
-  DestinationRegion,
-  ExchangePlan,
-  ExchangeProfileInput,
-  PlanResponse,
-  ProviderStatus
+import {
+  providerStatusSchema,
+  type DestinationRegion,
+  type ExchangePlan,
+  type ExchangeProfileInput,
+  type PlanResponse,
+  type ProviderStatus
 } from "@/lib/schema";
 import type { ExchangeCountry } from "@/lib/exchange-map-data";
 import type {
@@ -73,6 +74,10 @@ const fallbackProviderStatus: ProviderStatus = {
   mode: "mock",
   planner: "deterministic",
   search: "live-link",
+  reportDelivery: {
+    pdf: "available",
+    email: "disabled"
+  },
   costControl: {
     llmCallsPerSubmit: 0,
     maxSourceSnippets: 6,
@@ -112,7 +117,26 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     sequence: 0,
     controller: null
   });
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch("/api/status", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const parsed = providerStatusSchema.safeParse(await response.json());
+        if (parsed.success) setProviderStatus(parsed.data);
+      })
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.warn("Runtime provider status is unavailable.", error);
+        }
+      });
+
+    return () => controller.abort();
+  }, []);
   const [isPlanLoading, setIsPlanLoading] = useState(false);
+  const [isReportDeliveryWorking, setIsReportDeliveryWorking] = useState(false);
   const [planError, setPlanError] = useState("");
   const selectedExchangeUniversity = useMemo(
     () =>
@@ -197,7 +221,15 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       throw new Error(payload.error ?? `Plan request failed with ${response.status}`);
     }
 
-    return response.json() as Promise<PlanResponse>;
+    const payload = await response.json() as Omit<PlanResponse, "providerStatus"> & {
+      providerStatus?: unknown;
+    };
+    const parsedStatus = providerStatusSchema.safeParse(payload.providerStatus);
+
+    return {
+      plan: payload.plan,
+      providerStatus: parsedStatus.success ? parsedStatus.data : fallbackProviderStatus
+    };
   }
 
   async function runPlanRequest(
@@ -212,6 +244,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       universityQuery
     }
   ) {
+    if (isReportDeliveryWorking) return;
     requestState.current.controller?.abort();
     const controller = new AbortController();
     const sequence = requestState.current.sequence + 1;
@@ -269,6 +302,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
   }
 
   function handleRegionSelect(region: DestinationRegion) {
+    if (isReportDeliveryWorking) return;
     const defaultCountry = getDefaultCountryForRegion(region);
     const nextSelection = {
       activeRegion: region,
@@ -292,6 +326,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
     routeKey?: string,
     searchQuery = ""
   ) {
+    if (isReportDeliveryWorking) return;
     const selectedUniversity =
       country.universities.find((university) => getUniversityRouteKey(university) === routeKey) ??
       country.universities.find((university) => university.name === universityName) ??
@@ -386,6 +421,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             isDetailOpen={isCountryDetailOpen}
             highlightedUniversityKey={highlightedUniversityKey}
             onCountrySelect={handleCountrySelect}
+            disabled={isReportDeliveryWorking}
           />
           <div className="region-list">
             {regions.map((region) => (
@@ -393,6 +429,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                 key={region.id}
                 className={`region-tile ${region.id === activeRegion ? "active" : ""}`}
                 aria-pressed={region.id === activeRegion}
+                disabled={isReportDeliveryWorking}
                 onClick={() => handleRegionSelect(region.id)}
               >
                 <span>{region.eyebrow}</span>
@@ -431,6 +468,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                 onChange={(event) => setUniversityQuery(event.target.value)}
                 placeholder="Search partner universities"
                 aria-label="Search partner universities"
+                disabled={isReportDeliveryWorking}
               />
             </div>
             <div className="university-search-results" aria-label="University search results">
@@ -440,6 +478,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                     <button
                       key={`${result.countryId}-${result.name}-${result.index}`}
                       type="button"
+                      disabled={isReportDeliveryWorking}
                       onClick={() => handleUniversitySelect(result)}
                     >
                       <span>{result.country.name} / {result.city}</span>
@@ -462,6 +501,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
                   type="button"
                   className={`university-card ${getUniversityRouteKey(university) === highlightedUniversityKey ? "active" : ""}`}
                   aria-pressed={getUniversityRouteKey(university) === highlightedUniversityKey}
+                  disabled={isReportDeliveryWorking}
                   onClick={() => handleCountrySelect(selectedCountry, university.name, true, getUniversityRouteKey(university))}
                 >
                   <UniversityVisual
@@ -500,10 +540,19 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
           </p>
         </div>
         <div className="planner-grid">
-          <IntakePanel plan={plan} onSubmit={handleProfileSubmit} />
+          <IntakePanel
+            plan={plan}
+            onSubmit={handleProfileSubmit}
+            disabled={isReportDeliveryWorking}
+          />
           <div className="planner-output">
             {planError && <p className="plan-error" role="alert">{planError}</p>}
-            <PlanDashboard plan={plan} providerStatus={providerStatus} isPlanLoading={isPlanLoading} />
+            <PlanDashboard
+              plan={plan}
+              providerStatus={providerStatus}
+              isPlanLoading={isPlanLoading}
+              onReportDeliveryStateChange={setIsReportDeliveryWorking}
+            />
           </div>
         </div>
       </motion.section>

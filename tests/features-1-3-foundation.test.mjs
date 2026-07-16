@@ -80,6 +80,61 @@ test("NUSMods lookup stays on the fixed host and emits candidate-only data", asy
   assert.equal("approved" in result.candidate, false);
 });
 
+test("NUSMods retries one transient cold-cache transport failure", async () => {
+  let calls = 0;
+  const client = academic.createNusModsClient({
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("temporary connection failure");
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { moduleCode: "CS1010S", title: "Programming Methodology" };
+        }
+      };
+    }
+  });
+
+  const result = await client.lookup({ academicYear: "2026-2027", moduleCode: "CS1010S" });
+  assert.equal(calls, 2);
+  assert.equal(result.cacheStatus, "miss");
+  assert.equal(result.candidate.title, "Programming Methodology");
+});
+
+test("NUSMods retries consume the outbound-call budget", async () => {
+  let calls = 0;
+  const client = academic.createNusModsClient({
+    maxFetchesPerWindow: 1,
+    fetchImpl: async () => {
+      calls += 1;
+      throw new Error("temporary connection failure");
+    }
+  });
+
+  await assert.rejects(
+    client.lookup({ academicYear: "2026-2027", moduleCode: "CS1010S" }),
+    /capacity is temporarily exhausted/
+  );
+  assert.equal(calls, 1);
+});
+
+test("NUSMods does not retry permanent HTTP failures", async () => {
+  let calls = 0;
+  const client = academic.createNusModsClient({
+    fetchImpl: async () => {
+      calls += 1;
+      return { ok: false, status: 403, async json() { return {}; } };
+    }
+  });
+
+  await assert.rejects(
+    client.lookup({ academicYear: "2026-2027", moduleCode: "CS1010S" }),
+    /HTTP 403/
+  );
+  assert.equal(calls, 1);
+});
+
 test("NUSMods validation rejects path injection and non-consecutive years", async () => {
   const client = academic.createNusModsClient({
     fetchImpl: async () => {

@@ -2,6 +2,11 @@ import { z } from "zod";
 
 import { academicYearSchema } from "./academic-year";
 
+const optionalIsoDateSchema = z.preprocess(
+  (value) => value === "" ? undefined : value,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+);
+
 export type DestinationRegion =
   | "asia"
   | "europe"
@@ -56,8 +61,8 @@ export const exchangeProfileInputSchema = z.object({
     .max(6)
     .refine((codes) => new Set(codes).size === codes.length, "Module codes must be unique.")
     .default([]),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  startDate: optionalIsoDateSchema,
+  endDate: optionalIsoDateSchema,
   studentEmail: z.string().email().max(254).optional().or(z.literal(""))
 }).superRefine((profile, context) => {
   if (profile.nusModuleCodes.length > 0 && !profile.academicYear) {
@@ -255,20 +260,25 @@ export type ExchangePlan = {
   generatedAt: string;
 };
 
-export type ProviderMode = "mock" | "hybrid" | "openai";
+export const providerStatusSchema = z.object({
+  mode: z.enum(["mock", "hybrid", "openai"]),
+  planner: z.enum(["deterministic", "openai-ready", "openai"]),
+  search: z.enum(["live-link", "live-api", "seeded-fallback"]),
+  reportDelivery: z.object({
+    pdf: z.literal("available"),
+    email: z.enum(["configured", "disabled"])
+  }),
+  costControl: z.object({
+    llmCallsPerSubmit: z.number().int().nonnegative(),
+    maxSourceSnippets: z.number().int().nonnegative(),
+    maxOutputTokens: z.number().int().nonnegative(),
+    cacheRecommended: z.boolean()
+  }),
+  warnings: z.array(z.string())
+});
 
-export type ProviderStatus = {
-  mode: ProviderMode;
-  planner: "deterministic" | "openai-ready" | "openai";
-  search: "live-link" | "live-api" | "seeded-fallback";
-  costControl: {
-    llmCallsPerSubmit: number;
-    maxSourceSnippets: number;
-    maxOutputTokens: number;
-    cacheRecommended: boolean;
-  };
-  warnings: string[];
-};
+export type ProviderMode = z.infer<typeof providerStatusSchema>["mode"];
+export type ProviderStatus = z.infer<typeof providerStatusSchema>;
 
 export type PlanResponse = {
   plan: ExchangePlan;

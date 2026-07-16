@@ -19,11 +19,17 @@ type PlanDashboardProps = {
   plan: ExchangePlan;
   providerStatus: ProviderStatus;
   isPlanLoading?: boolean;
+  onReportDeliveryStateChange?: (isWorking: boolean) => void;
 };
 
 const tabs = ["Overview", "Visa", "Modules", "Culture", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life", "Daily Plan", "Q&A"] as const;
 
-export function PlanDashboard({ plan, providerStatus, isPlanLoading = false }: PlanDashboardProps) {
+export function PlanDashboard({
+  plan,
+  providerStatus,
+  isPlanLoading = false,
+  onReportDeliveryStateChange
+}: PlanDashboardProps) {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Accommodation");
   const activeTabId = tabId(activeTab);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -93,7 +99,12 @@ export function PlanDashboard({ plan, providerStatus, isPlanLoading = false }: P
       </div>
 
       <ProviderBanner providerStatus={providerStatus} />
-      <ReportDelivery plan={plan} isPlanLoading={isPlanLoading} />
+      <ReportDelivery
+        plan={plan}
+        providerStatus={providerStatus}
+        isPlanLoading={isPlanLoading}
+        onDeliveryStateChange={onReportDeliveryStateChange}
+      />
     </section>
   );
 }
@@ -550,24 +561,55 @@ function ProviderBanner({ providerStatus }: { providerStatus: ProviderStatus }) 
   );
 }
 
-function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoading: boolean }) {
+function ReportDelivery({
+  plan,
+  providerStatus,
+  isPlanLoading,
+  onDeliveryStateChange
+}: {
+  plan: ExchangePlan;
+  providerStatus: ProviderStatus;
+  isPlanLoading: boolean;
+  onDeliveryStateChange?: (isWorking: boolean) => void;
+}) {
   const [status, setStatus] = useState<string>("");
   const [isWorking, setIsWorking] = useState(false);
   const studentEmail = plan.profile.studentEmail?.trim() ?? "";
+  const isEmailConfigured = providerStatus.reportDelivery.email === "configured";
+  const reportProfile = {
+    ...plan.profile,
+    startDate: plan.profile.startDate || undefined,
+    endDate: plan.profile.endDate || undefined
+  };
   const activeReportId = useRef(plan.generatedAt);
   const requestController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     activeReportId.current = plan.generatedAt;
     requestController.current?.abort();
+    onDeliveryStateChange?.(false);
     setIsWorking(false);
     setStatus("");
-  }, [plan.generatedAt]);
+  }, [plan.generatedAt, onDeliveryStateChange]);
+
+  useEffect(() => {
+    if (!isPlanLoading) return;
+    requestController.current?.abort();
+    onDeliveryStateChange?.(false);
+    setIsWorking(false);
+    setStatus("Report delivery cancelled because the plan is updating.");
+  }, [isPlanLoading, onDeliveryStateChange]);
+
+  useEffect(() => () => {
+    requestController.current?.abort();
+    onDeliveryStateChange?.(false);
+  }, [onDeliveryStateChange]);
 
   async function downloadPdf() {
     const reportId = plan.generatedAt;
     const controller = new AbortController();
     requestController.current = controller;
+    onDeliveryStateChange?.(true);
     setIsWorking(true);
     setStatus("Generating PDF report...");
     try {
@@ -575,7 +617,7 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ profile: plan.profile })
+        body: JSON.stringify({ profile: reportProfile })
       });
       if (!response.ok) {
         const payload = await readJsonResponse(response);
@@ -586,10 +628,13 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `${slugify(plan.partnerUniversity.name)}-exchange-plan.pdf`;
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
       if (activeReportId.current === reportId) {
-        setStatus("PDF downloaded. Review it before sending.");
+        setStatus("PDF download started. Review it before sending.");
       }
     } catch (error) {
       if (activeReportId.current === reportId && !isAbortError(error)) {
@@ -597,12 +642,17 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
       }
     } finally {
       if (activeReportId.current === reportId) {
+        onDeliveryStateChange?.(false);
         setIsWorking(false);
       }
     }
   }
 
   async function emailReport() {
+    if (!isEmailConfigured) {
+      setStatus("Email delivery is not configured in this environment. Download the PDF instead.");
+      return;
+    }
     if (!studentEmail) {
       setStatus("Add the student email in the intake form and regenerate the plan first.");
       return;
@@ -615,6 +665,7 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
     const reportId = plan.generatedAt;
     const controller = new AbortController();
     requestController.current = controller;
+    onDeliveryStateChange?.(true);
     setIsWorking(true);
     setStatus("Sending report...");
     try {
@@ -623,7 +674,7 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          profile: plan.profile
+          profile: reportProfile
         })
       });
       const payload = await readJsonResponse(response);
@@ -639,6 +690,7 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
       }
     } finally {
       if (activeReportId.current === reportId) {
+        onDeliveryStateChange?.(false);
         setIsWorking(false);
       }
     }
@@ -659,7 +711,8 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
           type="button"
           className="primary"
           onClick={emailReport}
-          disabled={isWorking || isPlanLoading || !studentEmail}
+          disabled={isWorking || isPlanLoading}
+          aria-disabled={!studentEmail || !isEmailConfigured || undefined}
           aria-describedby="email-report-help"
         >
           <EnvelopeSimple size={20} />
@@ -669,8 +722,10 @@ function ReportDelivery({ plan, isPlanLoading }: { plan: ExchangePlan; isPlanLoa
       <p id="email-report-help" aria-live="polite">
         {status || (isPlanLoading
           ? "Updating the selected university before report delivery."
-          : studentEmail
-            ? `Ready for ${studentEmail}.`
+          : !isEmailConfigured
+            ? "Email delivery is disabled in this environment. Download the PDF instead."
+            : studentEmail
+            ? `Email entered for ${studentEmail}; demo eligibility is checked when sent.`
             : "Add a student email to enable delivery.")}
       </p>
     </section>

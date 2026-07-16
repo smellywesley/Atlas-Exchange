@@ -1,4 +1,5 @@
 import type { ProviderStatus } from "./schema";
+import { getReportEmailConfig } from "./report-email-config";
 
 function readNumberEnv(name: string, fallback: number) {
   const raw = process.env[name];
@@ -19,6 +20,10 @@ export function getProviderStatus(): ProviderStatus {
     mode: "mock",
     planner: "deterministic",
     search: "live-link",
+    reportDelivery: {
+      pdf: "available",
+      email: getReportEmailConfig() ? "configured" : "disabled"
+    },
     costControl: {
       llmCallsPerSubmit: 0,
       maxSourceSnippets: readNumberEnv("MAX_SOURCE_SNIPPETS", 6),
