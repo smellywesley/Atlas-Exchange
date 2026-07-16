@@ -17,4 +17,5 @@ public/renders
 .gstack/
 
 .vercel
+.codex/screenshots/
 .env*

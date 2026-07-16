@@ -163,9 +163,7 @@ ExchangePlan snapshot
   -> validate destination and evidence coverage
   -> generate printable plan document
   -> render PDF on the server
-  -> show preview and recipient confirmation
-  -> send email with an idempotency key
-  -> record delivery result without storing more personal data than needed
+  -> download directly without collecting recipient data
 ```
 
 Recommended implementation:
@@ -173,28 +171,20 @@ Recommended implementation:
 - Keep `ExchangePlan` as the source of truth.
 - Add `planId`, `version`, `generatedAt`, `dataFreshness`, and `evidenceCoverage`.
 - Generate the PDF in a Next.js Route Handler with `@react-pdf/renderer`.
-- Generate the email body with React Email.
-- Use Resend for hackathon delivery after a sender domain is verified.
-- Include both a PDF attachment and a secure plan link if plan persistence is added.
-- Require explicit confirmation immediately before sending.
-- Use an idempotency key so repeated clicks cannot send duplicate emails.
-
-Resend supports file attachments up to 40 MB after Base64 encoding and supports idempotency keys. A verified sender domain is required for sending beyond the account's own test address.
+- Keep export download-only for the hackathon so the app does not collect recipient addresses or depend on sender-domain configuration.
 
 ## Implementation Order
 
 1. Fix destination integrity and remove London hardcodes from global planning.
-2. Add student dates, diet, activities, accessibility needs, email, and optional parent recipient inputs.
+2. Add student dates, diet, activities, and accessibility needs.
 3. Replace budget-derived costs and fixed commute values with explicit unknown or sourced data.
 4. Add evidence requirements and source coverage checks to every plan module.
 5. Add named local places and top-20 discovery with Maps links.
 6. Add document preview and PDF download.
-7. Add confirmed email delivery after recipient and consent behavior is decided.
+7. Reconsider authenticated delivery only after recipient consent, ownership verification, and retention behavior are decided.
 
 ## Open Decisions
 
-1. Who may receive the plan: student only, student plus optional parent, or any entered address?
-2. Should top 20 mean city-wide attractions, places within a campus travel radius, or a mixture?
-3. Should generated plans be stored behind an account, stored temporarily, or generated without persistence?
-4. Which sender domain can be verified for email delivery?
-5. Is Google Maps Platform billing acceptable for the hackathon, or should the demo keep live Maps links with a small curated dataset?
+1. Should top 20 mean city-wide attractions, places within a campus travel radius, or a mixture?
+2. Should generated plans be stored behind an account, stored temporarily, or generated without persistence?
+3. Is Google Maps Platform billing acceptable for the hackathon, or should the demo keep live Maps links with a small curated dataset?

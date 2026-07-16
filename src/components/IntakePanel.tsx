@@ -16,7 +16,6 @@ export function IntakePanel({ plan, onSubmit, disabled = false }: IntakePanelPro
   const [style, setStyle] = useState(plan.profile.travelStyle);
   const [startDate, setStartDate] = useState(plan.profile.startDate);
   const [endDate, setEndDate] = useState(plan.profile.endDate);
-  const [studentEmail, setStudentEmail] = useState(plan.profile.studentEmail ?? "");
   const [dietaryNeeds, setDietaryNeeds] = useState(plan.profile.dietaryNeeds.join(", "));
   const [plannedActivities, setPlannedActivities] = useState(plan.profile.plannedActivities.join(", "));
   const [academicYear, setAcademicYear] = useState(plan.profile.academicYear ?? "");
@@ -38,8 +37,7 @@ export function IntakePanel({ plan, onSubmit, disabled = false }: IntakePanelPro
       academicYear: academicYear.trim(),
       nusModuleCodes: splitList(nusModuleCodes).map((code) => code.toUpperCase()),
       startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      studentEmail: studentEmail.trim()
+      endDate: endDate || undefined
     });
   }
 
@@ -55,7 +53,7 @@ export function IntakePanel({ plan, onSubmit, disabled = false }: IntakePanelPro
         <span className="panel-label">Student intake</span>
         <h3>{plan.profile.destinationCity} exchange requirements</h3>
         <p>
-          Update the real constraints used by the plan, packing list, PDF, and email report.
+          Update the real constraints used by the plan, packing list, and downloadable PDF.
         </p>
       </div>
 
@@ -161,16 +159,6 @@ export function IntakePanel({ plan, onSubmit, disabled = false }: IntakePanelPro
           />
         </label>
       </div>
-
-      <label>
-        Student email for report
-        <input
-          type="email"
-          value={studentEmail}
-          placeholder="student@example.com"
-          onChange={(event) => setStudentEmail(event.target.value)}
-        />
-      </label>
 
       <fieldset>
         <legend>Travel style</legend>

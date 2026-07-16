@@ -184,15 +184,8 @@ test("security headers include framing, MIME, policy, and CSP protections", asyn
   assert.equal(headers["Permissions-Policy"], "camera=(), microphone=(), geolocation=()");
 });
 
-test("route ordering rejects cheap inputs before identity-cardinality allocation", () => {
-  const emailRoute = fs.readFileSync(path.resolve("app/api/report/email/route.ts"), "utf8");
+test("PDF route validates the profile before allocating client quota", () => {
   const pdfRoute = fs.readFileSync(path.resolve("app/api/report/pdf/route.ts"), "utf8");
 
-  assert.ok(emailRoute.indexOf("hasExactRequestOrigin") < emailRoute.indexOf("readBoundedJson(request)"));
-  assert.ok(emailRoute.indexOf("allowlist.has") < emailRoute.indexOf('"email-client"'));
-  assert.ok(emailRoute.indexOf("buildPlanResponseForInput(parsed.data.profile)") < emailRoute.indexOf("email-recipient:"));
-  assert.ok(emailRoute.indexOf("route:email") < emailRoute.indexOf('"email-client"'));
-  assert.ok(emailRoute.indexOf("email-recipient:") < emailRoute.indexOf('"email-client"'));
-  assert.match(emailRoute, /email-recipient:\$\{recipientKey\}/);
   assert.ok(pdfRoute.indexOf("safeParse(body.profile)") < pdfRoute.indexOf('"pdf-client"'));
 });

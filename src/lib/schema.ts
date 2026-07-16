@@ -62,8 +62,7 @@ export const exchangeProfileInputSchema = z.object({
     .refine((codes) => new Set(codes).size === codes.length, "Module codes must be unique.")
     .default([]),
   startDate: optionalIsoDateSchema,
-  endDate: optionalIsoDateSchema,
-  studentEmail: z.string().email().max(254).optional().or(z.literal(""))
+  endDate: optionalIsoDateSchema
 }).superRefine((profile, context) => {
   if (profile.nusModuleCodes.length > 0 && !profile.academicYear) {
     context.addIssue({
@@ -265,8 +264,7 @@ export const providerStatusSchema = z.object({
   planner: z.enum(["deterministic", "openai-ready", "openai"]),
   search: z.enum(["live-link", "live-api", "seeded-fallback"]),
   reportDelivery: z.object({
-    pdf: z.literal("available"),
-    email: z.enum(["configured", "disabled"])
+    pdf: z.literal("available")
   }),
   costControl: z.object({
     llmCallsPerSubmit: z.number().int().nonnegative(),

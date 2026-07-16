@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- campus imagery is supplied as verified local WebP assets. */
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   ArrowSquareOut,
   CalendarCheck,
@@ -47,6 +47,7 @@ import type {
 } from "@/lib/exchange-map-data";
 import { IntakePanel } from "./IntakePanel";
 import { PlanDashboard } from "./PlanDashboard";
+import type { CinematicCampus } from "./CinematicOpening";
 
 const RegionGlobe = dynamic(
   () => import("./RegionGlobe").then((module) => module.RegionGlobe),
@@ -63,6 +64,28 @@ const RegionGlobe = dynamic(
   }
 );
 
+const CinematicOpening = dynamic(
+  () => import("./CinematicOpening").then((module) => module.CinematicOpening),
+  {
+    ssr: false,
+    loading: () => <div className="cinematic-opening cinematic-loading" aria-hidden="true" />
+  }
+);
+
+const cinematicCampusSeed = [
+  { name: "Seoul National University", city: "Seoul", country: "South Korea" },
+  { name: "University of Tokyo", city: "Tokyo", country: "Japan" },
+  { name: "ETH Zurich", city: "Zurich", country: "Switzerland" },
+  { name: "University College London", city: "London", country: "United Kingdom" },
+  { name: "Stanford University", city: "Stanford", country: "United States" },
+  { name: "Universidade de Sao Paulo", city: "Sao Paulo", country: "Brazil" }
+] as const;
+
+const cinematicCampuses: readonly CinematicCampus[] = cinematicCampusSeed.flatMap((campus) => {
+  const imagePath = getUniversityImagePath(campus.name);
+  return imagePath ? [{ ...campus, imagePath }] : [];
+});
+
 const sectionMotion = {
   initial: { opacity: 0, y: 34 },
   whileInView: { opacity: 1, y: 0 },
@@ -75,8 +98,7 @@ const fallbackProviderStatus: ProviderStatus = {
   planner: "deterministic",
   search: "live-link",
   reportDelivery: {
-    pdf: "available",
-    email: "disabled"
+    pdf: "available"
   },
   costControl: {
     llmCallsPerSubmit: 0,
@@ -93,6 +115,7 @@ type AtlasShellProps = {
 };
 
 export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellProps) {
+  const reduceMotion = useReducedMotion();
   const [plan, setPlan] = useState(initialPlan);
   const [providerStatus, setProviderStatus] = useState(
     initialProviderStatus ?? fallbackProviderStatus
@@ -191,8 +214,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
       academicYear: plan.profile.academicYear ?? "",
       nusModuleCodes: plan.profile.nusModuleCodes ?? [],
       startDate: plan.profile.startDate || undefined,
-      endDate: plan.profile.endDate || undefined,
-      studentEmail: plan.profile.studentEmail ?? ""
+      endDate: plan.profile.endDate || undefined
     };
   }
 
@@ -356,7 +378,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
   return (
     <main className="site-shell">
       <nav className="top-nav" aria-label="Primary navigation">
-        <a href="#top" className="brand-lockup" aria-label="Atlas Exchange home">
+        <a href="#opening" className="brand-lockup" aria-label="Atlas Exchange home">
           <span className="brand-mark">AE</span>
           <span>Atlas Exchange</span>
         </a>
@@ -368,12 +390,54 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
         </div>
       </nav>
 
-      <motion.section id="top" className="hero-section" {...sectionMotion} initial={false}>
+      <CinematicOpening campuses={cinematicCampuses} />
+
+      <motion.section id="top" className="hero-section semester-command" {...sectionMotion} initial={false}>
         <div className="hero-backdrop" aria-hidden="true">
           {selectedUniversityImage && <img src={selectedUniversityImage} alt="" />}
         </div>
+        <div className="hero-data-environment" aria-hidden="true">
+          <svg className="hero-route-map" viewBox="0 0 1200 760" preserveAspectRatio="none">
+            <motion.path
+              d="M68 620 C 260 540, 326 246, 590 316 S 910 604, 1140 182"
+              initial={{ pathLength: 0, opacity: 0 }}
+              whileInView={{ pathLength: 1, opacity: 1 }}
+              viewport={{ once: false, amount: 0.25 }}
+              transition={{ duration: 2.2, ease: "easeInOut" }}
+            />
+            <motion.path
+              d="M120 166 C 330 284, 500 78, 746 204 S 948 390, 1090 322"
+              initial={{ pathLength: 0, opacity: 0 }}
+              whileInView={{ pathLength: 1, opacity: 0.58 }}
+              viewport={{ once: false, amount: 0.25 }}
+              transition={{ duration: 2.6, delay: 0.2, ease: "easeInOut" }}
+            />
+            <circle cx="590" cy="316" r="8" />
+            <circle cx="1090" cy="322" r="8" />
+            <circle cx="120" cy="166" r="8" />
+          </svg>
+          <motion.div
+            className="hero-hud hero-hud-coordinate"
+            animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
+            transition={reduceMotion ? undefined : { duration: 5.4, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <span>Campus lock</span>
+            <strong>{plan.partnerUniversity.city}</strong>
+            <small>{selectedCountry.name}</small>
+          </motion.div>
+          <motion.div
+            className="hero-hud hero-hud-budget"
+            animate={reduceMotion ? undefined : { y: [0, 9, 0] }}
+            transition={reduceMotion ? undefined : { duration: 6.2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <span>Monthly envelope</span>
+            <strong>SGD {plan.profile.monthlyBudgetSgd.toLocaleString()}</strong>
+            <small>{plan.profile.stayLengthMonths} month mission</small>
+          </motion.div>
+          <div className="hero-scanline" />
+        </div>
         <div className="hero-copy">
-          <p className="hero-kicker">{plan.profile.destinationCity} exchange path</p>
+          <p className="hero-kicker">{plan.profile.destinationCity} / semester command</p>
           <h1>Plan the semester before it starts.</h1>
           <p>
             Atlas Exchange turns housing, budgets, packing, and deadlines into one departure plan with visible sources.
@@ -387,7 +451,17 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             </a>
           </div>
         </div>
-        <div className="hero-card" aria-label={`${plan.profile.destinationCity} plan preview`}>
+        <motion.div
+          className="hero-card"
+          aria-label={`${plan.profile.destinationCity} plan preview`}
+          animate={reduceMotion ? undefined : { y: [0, -12, 0] }}
+          transition={reduceMotion ? undefined : { duration: 7, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <div className="hero-card-status">
+            <span>Live route</span>
+            <i />
+            <small>{selectedCountry.focusLabel}</small>
+          </div>
           {selectedUniversityImage ? (
             <img
               className="hero-card-image"
@@ -402,7 +476,7 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             <strong>{plan.partnerUniversity.name}</strong>
             <p>{plan.partnerUniversity.city} housing, commute, budget, packing, and deadlines.</p>
           </div>
-        </div>
+        </motion.div>
       </motion.section>
 
       <motion.section id="regions" className="region-section" {...sectionMotion}>

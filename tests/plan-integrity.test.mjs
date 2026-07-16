@@ -90,19 +90,9 @@ test("Oxford never falls back to UCL or London", () => {
 test("credentials never advertise providers that are not implemented", () => {
   const previousOpenAiKey = process.env.OPENAI_API_KEY;
   const previousTavilyKey = process.env.TAVILY_API_KEY;
-  const emailEnvironment = [
-    "RESEND_API_KEY",
-    "EMAIL_FROM",
-    "APP_ORIGIN",
-    "REPORT_EMAIL_ALLOWLIST"
-  ];
-  const previousEmailEnvironment = Object.fromEntries(
-    emailEnvironment.map((name) => [name, process.env[name]])
-  );
 
   process.env.OPENAI_API_KEY = "test-placeholder";
   process.env.TAVILY_API_KEY = "test-placeholder";
-  emailEnvironment.forEach((name) => delete process.env[name]);
 
   try {
     const { providerStatus } = planEngine.buildPlanResponseForInput(inputFor("INSA Lyon"));
@@ -111,7 +101,6 @@ test("credentials never advertise providers that are not implemented", () => {
     assert.equal(providerStatus.planner, "deterministic");
     assert.equal(providerStatus.search, "live-link");
     assert.equal(providerStatus.reportDelivery.pdf, "available");
-    assert.equal(providerStatus.reportDelivery.email, "disabled");
     assert.equal(providerStatus.costControl.llmCallsPerSubmit, 0);
     assert.equal(providerStatus.warnings.length, 1);
     assert.match(providerStatus.warnings[0], /deterministic planning is active/i);
@@ -128,51 +117,6 @@ test("credentials never advertise providers that are not implemented", () => {
       process.env.TAVILY_API_KEY = previousTavilyKey;
     }
 
-    for (const name of emailEnvironment) {
-      const previousValue = previousEmailEnvironment[name];
-      if (previousValue === undefined) delete process.env[name];
-      else process.env[name] = previousValue;
-    }
-  }
-});
-
-test("provider status reports configured email only when every delivery setting is valid", () => {
-  const names = ["RESEND_API_KEY", "EMAIL_FROM", "APP_ORIGIN", "REPORT_EMAIL_ALLOWLIST"];
-  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
-
-  process.env.RESEND_API_KEY = "re_test_placeholder";
-  process.env.EMAIL_FROM = "Atlas Exchange <reports@example.com>";
-  process.env.APP_ORIGIN = "https://atlas.example.com";
-  process.env.REPORT_EMAIL_ALLOWLIST = "student@example.com";
-
-  try {
-    const { providerStatus } = planEngine.buildPlanResponseForInput(inputFor("INSA Lyon"));
-    assert.equal(providerStatus.reportDelivery.email, "configured");
-  } finally {
-    for (const name of names) {
-      if (previous[name] === undefined) delete process.env[name];
-      else process.env[name] = previous[name];
-    }
-  }
-});
-
-test("provider status rejects malformed email delivery settings", () => {
-  const names = ["RESEND_API_KEY", "EMAIL_FROM", "APP_ORIGIN", "REPORT_EMAIL_ALLOWLIST"];
-  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
-
-  process.env.RESEND_API_KEY = "re_test_placeholder";
-  process.env.EMAIL_FROM = "not-an-email";
-  process.env.APP_ORIGIN = "https://atlas.example.com";
-  process.env.REPORT_EMAIL_ALLOWLIST = "also-not-an-email";
-
-  try {
-    const { providerStatus } = planEngine.buildPlanResponseForInput(inputFor("INSA Lyon"));
-    assert.equal(providerStatus.reportDelivery.email, "disabled");
-  } finally {
-    for (const name of names) {
-      if (previous[name] === undefined) delete process.env[name];
-      else process.env[name] = previous[name];
-    }
   }
 });
 

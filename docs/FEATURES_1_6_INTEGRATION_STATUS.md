@@ -15,7 +15,7 @@ university selection
   -> academic + visa + culture foundations
   -> accommodation + budget + packing + daily logistics
   -> evidence-only Q&A
-  -> PDF download or controlled student-email delivery
+  -> PDF download
 ```
 
 The selected university ID, city, country, image identity, sources, and generated plan travel together. No unsupported destination is allowed to inherit UCL, London, or another university's content.
@@ -47,7 +47,6 @@ The selected university ID, city, country, image identity, sources, and generate
 - `POST /api/qna`: evidence-only, non-PII plan question.
 - `GET /api/search/accommodation`: official and provider discovery links.
 - `POST /api/report/pdf`: server-regenerated plan PDF.
-- `POST /api/report/email`: controlled allowlisted demo delivery.
 
 ## Verification
 

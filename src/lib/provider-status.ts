@@ -1,5 +1,4 @@
 import type { ProviderStatus } from "./schema";
-import { getReportEmailConfig } from "./report-email-config";
 
 function readNumberEnv(name: string, fallback: number) {
   const raw = process.env[name];
@@ -21,8 +20,7 @@ export function getProviderStatus(): ProviderStatus {
     planner: "deterministic",
     search: "live-link",
     reportDelivery: {
-      pdf: "available",
-      email: getReportEmailConfig() ? "configured" : "disabled"
+      pdf: "available"
     },
     costControl: {
       llmCallsPerSubmit: 0,

@@ -27,13 +27,14 @@ For the hackathon demo, London is still the most source-complete path. Global ro
 
 ## Current Features
 
+- Scroll-directed Three.js opening that moves from NASA Blue Marble geography into six real partner-campus frames and the Atlas Exchange title reveal.
 - Premium Next.js web app with cinematic destination discovery.
 - Direct Three.js interactive exchange globe with drag rotation, wheel zoom, and clickable country markers.
 - Country-specific templates for city campuses, mountain routes, coastal routes, heritage routes, US campus corridors, and Pacific routes.
 - Partnership data surfaces for UK, South Korea, Japan, China, Hong Kong, Taiwan, Australia, New Zealand, Switzerland, Netherlands, France, Germany, USA East/West, Canada, Mexico, and Brazil.
 - Searchable partner-university cards across every included country and partnership route.
 - Ninety-two local 1600x1000 campus images wired into the globe HUD, selected-campus hero, and university cards.
-- Student intake for dates, budget, stay length, housing, dietary needs, planned activities, travel style, and report email.
+- Student intake for dates, budget, stay length, housing, dietary needs, planned activities, and travel style.
 - Candidate-only NUSMods module lookup with one bounded transient retry, bounded caching, single-flight request coalescing, process-wide concurrency control, and an outbound-call budget.
 - Destination-specific official visa sources that never claim to issue a visa decision.
 - Reviewed cultural preparation for supported cities, with an explicit `needs-review` state elsewhere.
@@ -46,7 +47,7 @@ For the hackathon demo, London is still the most source-complete path. Global ro
 - No-key logistics agent layer that generates arrival tasks, week-one tasks, ongoing routines, parent reassurance, and structured Q&A for every selected partner university.
 - Source visibility layer using `SourceRef`.
 - Provider status endpoint that reports only capabilities the current build actually invokes.
-- Evidence-linked PDF report generation and controlled, allowlisted student email delivery.
+- Evidence-linked PDF report generation for offline review and departure preparation.
 - Local campus-image override folder with a 92-school filename checklist.
 - Remotion demo video starter.
 
@@ -78,7 +79,6 @@ See [docs/FEATURE_4_6_INTEGRATION_PLAN.md](docs/FEATURE_4_6_INTEGRATION_PLAN.md)
 - TypeScript
 - Zod
 - pdf-lib
-- React Email and Resend
 - Phosphor Icons
 - Three.js
 - Motion for scroll and section transitions
@@ -126,7 +126,7 @@ Deploy the current working tree with:
 npx vercel@latest deploy --prod --yes --project atlas-exchange
 ```
 
-The 15 July 2026 deployment was verified at desktop and 390x844 mobile viewports. The home page, campus images, Three.js globe, Google Maps embed, plan generation, deterministic Q&A, live NUSMods lookup, and PDF export all returned successfully. Report email intentionally returns `503` until the controlled recipient configuration below is added to Vercel. Production also sets `TRUST_PROXY_HEADERS=true` because Vercel overwrites forwarding headers, and pins `APP_ORIGIN` to the canonical production URL.
+The 16 July 2026 release adds a scroll-directed Earth-to-campus opening and a holographic semester-planning scene. The home page, campus images, Three.js scenes, Google Maps embed, plan generation, deterministic Q&A, live NUSMods lookup, and PDF export are verified before deployment. Production sets `TRUST_PROXY_HEADERS=true` because Vercel overwrites forwarding headers.
 
 The Vercel project is currently deployed through the CLI. GitHub remains the source repository, but automatic Git-to-Vercel deployments are not claimed until the repository integration is connected in the Vercel dashboard.
 
@@ -167,7 +167,7 @@ npm run video:render
 
 ### `GET /api/status`
 
-Returns the current provider mode, cost guardrails, and report-delivery readiness. The browser refreshes this no-store status at runtime so the PDF and email controls reflect the deployed environment rather than a build-time assumption.
+Returns the current provider mode, cost guardrails, and report-delivery readiness. The browser refreshes this no-store status at runtime so deployed capabilities do not rely on a build-time assumption.
 
 The current route reports `mock`: deterministic planning, live platform links, and zero OpenAI calls. The `hybrid` and `openai` schema values are reserved for future provider implementations; adding credentials alone does not activate or advertise them.
 
@@ -213,12 +213,6 @@ Current implementation uses official university housing links and live platform 
 
 Regenerates a validated plan server-side and returns a multi-page PDF with clickable evidence links.
 
-### `POST /api/report/email`
-
-Emails the same PDF to the student address in the profile. For a controlled hackathon demo, configure `RESEND_API_KEY`, `EMAIL_FROM`, an exact `REPORT_EMAIL_ALLOWLIST`, and canonical `APP_ORIGIN` such as `https://atlas-exchange.vercel.app` (no trailing slash). Without all four, the route remains disabled and the UI falls back to PDF download.
-
-`EMAIL_FROM` must be a sender verified by the configured Resend account. The allowlist should contain only the student test addresses approved for the demo; this is intentionally not an open email relay.
-
 ## Architecture
 
 ```text
@@ -234,7 +228,6 @@ Next.js App Router
   | /api/qna
   | /api/search/accommodation
   | /api/report/pdf
-  | /api/report/email
   v
 Plan Engine
   |
@@ -302,12 +295,15 @@ Notion project hub:
 - Accommodation search is live-link based, not full listing extraction.
 - LLM synthesis is planned but not active by default.
 - The public Vercel demo runs in deterministic `mock` provider mode. Credentials alone cannot change the reported mode.
-- Email allowlisting and origin checks are appropriate for a controlled local demo, not proof that a caller owns the recipient address.
-- Application rate limits and concurrency gates are process-local. The deployed Vercel Firewall adds a global 60-request-per-minute `/api/*` boundary for the hackathon, but paid providers and general email delivery still require route-specific shared quotas before broader public use.
+- Application rate limits and concurrency gates are process-local. The deployed Vercel Firewall adds a global 60-request-per-minute `/api/*` boundary for the hackathon, but paid providers still require route-specific shared quotas before broader public use.
 - `TRUST_PROXY_HEADERS=true` is safe only behind an edge that overwrites untrusted forwarding headers.
 - No user accounts, persistence, production auth, or payment.
 - Visa guidance links to official sources but does not make a visa decision. Module results are candidate-only and still require faculty approval.
 - Two supplied campus-image records still need complete attribution metadata: National Cheng Kung University and University of Washington, Seattle.
+
+## Visual Attribution
+
+The opening Earth texture is NASA Visible Earth Blue Marble imagery by NASA Goddard Space Flight Center, Reto Stockli, and Robert Simmon. Campus-image attribution and usage records live in `public/images/universities/sources-and-permissions.json`.
 
 ## Demo Path
 

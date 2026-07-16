@@ -5,7 +5,6 @@ import {
   ArrowSquareOut,
   CalendarCheck,
   DownloadSimple,
-  EnvelopeSimple,
   HouseLine,
   ListChecks,
   MapTrifold,
@@ -101,7 +100,6 @@ export function PlanDashboard({
       <ProviderBanner providerStatus={providerStatus} />
       <ReportDelivery
         plan={plan}
-        providerStatus={providerStatus}
         isPlanLoading={isPlanLoading}
         onDeliveryStateChange={onReportDeliveryStateChange}
       />
@@ -563,19 +561,15 @@ function ProviderBanner({ providerStatus }: { providerStatus: ProviderStatus }) 
 
 function ReportDelivery({
   plan,
-  providerStatus,
   isPlanLoading,
   onDeliveryStateChange
 }: {
   plan: ExchangePlan;
-  providerStatus: ProviderStatus;
   isPlanLoading: boolean;
   onDeliveryStateChange?: (isWorking: boolean) => void;
 }) {
   const [status, setStatus] = useState<string>("");
   const [isWorking, setIsWorking] = useState(false);
-  const studentEmail = plan.profile.studentEmail?.trim() ?? "";
-  const isEmailConfigured = providerStatus.reportDelivery.email === "configured";
   const reportProfile = {
     ...plan.profile,
     startDate: plan.profile.startDate || undefined,
@@ -634,7 +628,7 @@ function ReportDelivery({
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
       if (activeReportId.current === reportId) {
-        setStatus("PDF download started. Review it before sending.");
+        setStatus("PDF download started.");
       }
     } catch (error) {
       if (activeReportId.current === reportId && !isAbortError(error)) {
@@ -648,85 +642,22 @@ function ReportDelivery({
     }
   }
 
-  async function emailReport() {
-    if (!isEmailConfigured) {
-      setStatus("Email delivery is not configured in this environment. Download the PDF instead.");
-      return;
-    }
-    if (!studentEmail) {
-      setStatus("Add the student email in the intake form and regenerate the plan first.");
-      return;
-    }
-
-    if (!window.confirm(`Send the current ${plan.partnerUniversity.name} report to ${studentEmail}?`)) {
-      return;
-    }
-
-    const reportId = plan.generatedAt;
-    const controller = new AbortController();
-    requestController.current = controller;
-    onDeliveryStateChange?.(true);
-    setIsWorking(true);
-    setStatus("Sending report...");
-    try {
-      const response = await fetch("/api/report/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          profile: reportProfile
-        })
-      });
-      const payload = await readJsonResponse(response);
-      if (!response.ok || !payload.sent) {
-        throw new Error(payload.error ?? "Email delivery failed");
-      }
-      if (activeReportId.current === reportId) {
-        setStatus(`Report sent to ${studentEmail}.`);
-      }
-    } catch (error) {
-      if (activeReportId.current === reportId && !isAbortError(error)) {
-        setStatus(error instanceof Error ? error.message : "Email delivery failed");
-      }
-    } finally {
-      if (activeReportId.current === reportId) {
-        onDeliveryStateChange?.(false);
-        setIsWorking(false);
-      }
-    }
-  }
-
   return (
     <section className="report-delivery" aria-label="Report delivery">
       <div>
         <strong>Take the plan with you</strong>
-        <span>Download the evidence-linked PDF. Email works only for student addresses enabled in the demo allowlist.</span>
+        <span>Download the evidence-linked PDF for offline review and departure prep.</span>
       </div>
       <div className="report-actions">
-        <button type="button" onClick={downloadPdf} disabled={isWorking || isPlanLoading}>
+        <button className="primary" type="button" onClick={downloadPdf} disabled={isWorking || isPlanLoading}>
           <DownloadSimple size={20} />
           Download PDF
         </button>
-        <button
-          type="button"
-          className="primary"
-          onClick={emailReport}
-          disabled={isWorking || isPlanLoading}
-          aria-disabled={!studentEmail || !isEmailConfigured || undefined}
-          aria-describedby="email-report-help"
-        >
-          <EnvelopeSimple size={20} />
-          Email report
-        </button>
       </div>
-      <p id="email-report-help" aria-live="polite">
+      <p aria-live="polite">
         {status || (isPlanLoading
-          ? "Updating the selected university before report delivery."
-          : !isEmailConfigured
-            ? "Email delivery is disabled in this environment. Download the PDF instead."
-            : studentEmail
-            ? `Email entered for ${studentEmail}; demo eligibility is checked when sent.`
-            : "Add a student email to enable delivery.")}
+          ? "Updating the selected university before the PDF is prepared."
+          : "The export reflects the currently selected university and planner inputs.")}
       </p>
     </section>
   );
