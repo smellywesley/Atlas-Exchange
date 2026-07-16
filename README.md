@@ -126,7 +126,7 @@ Deploy the current working tree with:
 npx vercel@latest deploy --prod --yes --project atlas-exchange
 ```
 
-The 16 July 2026 release adds a scroll-directed Earth-to-campus opening and a holographic semester-planning scene. The home page, campus images, Three.js scenes, Google Maps embed, plan generation, deterministic Q&A, live NUSMods lookup, and PDF export are verified before deployment. Production sets `TRUST_PROXY_HEADERS=true` because Vercel overwrites forwarding headers.
+The 17 July 2026 release adds a scroll-directed Earth-to-campus opening, a 3D partner-campus orbit, and a holographic semester-planning scene. The home page, campus images, Three.js scenes, Google Maps embed, plan generation, deterministic Q&A, live NUSMods lookup, and PDF export are verified before deployment. Production sets `TRUST_PROXY_HEADERS=true` because Vercel overwrites forwarding headers.
 
 The Vercel project is currently deployed through the CLI. GitHub remains the source repository, but automatic Git-to-Vercel deployments are not claimed until the repository integration is connected in the Vercel dashboard.
 

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   motion,
+  type MotionValue,
   useReducedMotion,
   useScroll,
   useTransform
@@ -35,22 +36,28 @@ export function CinematicOpening({ campuses }: CinematicOpeningProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rendererUnavailable, setRendererUnavailable] = useState(false);
   const [visibleCampusCount, setVisibleCampusCount] = useState(6);
+  const [orbitCampusCount, setOrbitCampusCount] = useState(12);
   const reduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start start", "end end"]
   });
-  const openingOpacity = useTransform(scrollYProgress, [0, 0.25, 0.38], [1, 1, 0]);
-  const campusOpacity = useTransform(scrollYProgress, [0.18, 0.32, 0.68, 0.82], [0, 1, 1, 0]);
-  const campusY = useTransform(scrollYProgress, [0.18, 0.48, 0.82], [90, 0, -70]);
-  const welcomeOpacity = useTransform(scrollYProgress, [0.56, 0.7, 0.96, 1], [0, 1, 1, 0]);
-  const welcomeScale = useTransform(scrollYProgress, [0.58, 0.76], [0.88, 1]);
+  const openingOpacity = useTransform(scrollYProgress, [0, 0.18, 0.28], [1, 1, 0]);
+  const campusOpacity = useTransform(scrollYProgress, [0.15, 0.25, 0.42, 0.49], [0, 1, 1, 0]);
+  const campusY = useTransform(scrollYProgress, [0.15, 0.33, 0.49], [90, 0, -70]);
+  const orbitOpacity = useTransform(scrollYProgress, [0.42, 0.5, 0.77, 0.84], [0, 1, 1, 0]);
+  const orbitLabelOpacity = useTransform(scrollYProgress, [0.46, 0.52, 0.75, 0.81], [0, 1, 1, 0]);
+  const welcomeOpacity = useTransform(scrollYProgress, [0.8, 0.87, 0.98, 1], [0, 1, 1, 0]);
+  const welcomeScale = useTransform(scrollYProgress, [0.81, 0.9], [0.88, 1]);
   const signalOpacity = useTransform(scrollYProgress, [0, 0.08, 0.9, 1], [0, 1, 1, 0]);
 
   useEffect(() => {
     const mobileQuery = window.matchMedia("(max-width: 720px)");
     const tabletQuery = window.matchMedia("(max-width: 980px)");
-    const updateCount = () => setVisibleCampusCount(mobileQuery.matches ? 2 : tabletQuery.matches ? 3 : 6);
+    const updateCount = () => {
+      setVisibleCampusCount(mobileQuery.matches ? 2 : tabletQuery.matches ? 3 : 6);
+      setOrbitCampusCount(mobileQuery.matches ? 7 : tabletQuery.matches ? 9 : 12);
+    };
 
     updateCount();
     mobileQuery.addEventListener("change", updateCount);
@@ -305,6 +312,7 @@ export function CinematicOpening({ campuses }: CinematicOpeningProps) {
 
   return (
     <section ref={sectionRef} id="opening" className="cinematic-opening" aria-label="Atlas Exchange world journey">
+      <span id="campus-options" className="cinematic-checkpoint" aria-hidden="true" />
       <div className="cinematic-stage">
         <canvas ref={canvasRef} className="cinematic-canvas" aria-hidden="true" />
         {rendererUnavailable && campuses[0] && (
@@ -319,7 +327,9 @@ export function CinematicOpening({ campuses }: CinematicOpeningProps) {
           <i />
           <span>02 / CAMPUS</span>
           <i />
-          <span>03 / PLAN</span>
+          <span>03 / OPTIONS</span>
+          <i />
+          <span>04 / PLAN</span>
         </motion.div>
 
         <motion.div className="opening-copy" style={{ opacity: openingOpacity }}>
@@ -345,6 +355,25 @@ export function CinematicOpening({ campuses }: CinematicOpeningProps) {
           ))}
         </motion.div>
 
+        <motion.div className="campus-orbit-stage" style={{ opacity: orbitOpacity }}>
+          <motion.div className="campus-orbit-label" style={{ opacity: orbitLabelOpacity }}>
+            <span>Partner campus orbit</span>
+            <strong>Scroll through the exchange possibilities</strong>
+          </motion.div>
+          <div className="campus-orbit" aria-label="Partner campus options">
+            {campuses.slice(0, orbitCampusCount).map((campus, index, orbitCampuses) => (
+              <OrbitCampusCard
+                key={`orbit-${campus.name}`}
+                campus={campus}
+                index={index}
+                count={orbitCampuses.length}
+                progress={scrollYProgress}
+                compact={orbitCampusCount <= 7}
+              />
+            ))}
+          </div>
+        </motion.div>
+
         <motion.div
           className="welcome-reveal"
           style={{ opacity: welcomeOpacity, scale: welcomeScale, x: "-50%", y: "-50%" }}
@@ -361,6 +390,60 @@ export function CinematicOpening({ campuses }: CinematicOpeningProps) {
         <p className="cinematic-credit">Earth texture: NASA Visible Earth / Blue Marble</p>
       </div>
     </section>
+  );
+}
+
+function OrbitCampusCard({
+  campus,
+  compact,
+  count,
+  index,
+  progress
+}: {
+  campus: CinematicCampus;
+  compact: boolean;
+  count: number;
+  index: number;
+  progress: MotionValue<number>;
+}) {
+  const spacing = compact ? 174 : 238;
+  const phase = (value: number) => THREE.MathUtils.clamp((value - 0.46) / 0.34, 0, 1);
+  const slot = (value: number) => index - phase(value) * (count - 1);
+  const x = useTransform(progress, (value) => slot(value) * spacing);
+  const y = useTransform(progress, (value) => {
+    const distance = Math.min(Math.abs(slot(value)), compact ? 2.6 : 3.8);
+    return 78 - Math.pow(distance, 1.32) * (compact ? 60 : 54);
+  });
+  const scale = useTransform(progress, (value) =>
+    Math.max(compact ? 0.68 : 0.58, 1.06 - Math.abs(slot(value)) * 0.12)
+  );
+  const rotateY = useTransform(progress, (value) =>
+    THREE.MathUtils.clamp(slot(value) * -10, -38, 38)
+  );
+  const rotateZ = useTransform(progress, (value) =>
+    THREE.MathUtils.clamp(slot(value) * 1.8, -7, 7)
+  );
+  const opacity = useTransform(progress, (value) => {
+    const distance = Math.abs(slot(value));
+    const edge = compact ? 2.8 : 4.1;
+    return distance > edge ? 0 : Math.max(0.12, 1 - distance * 0.2);
+  });
+  const zIndex = useTransform(progress, (value) =>
+    Math.max(1, 100 - Math.round(Math.abs(slot(value)) * 18))
+  );
+
+  return (
+    <motion.figure
+      className="orbit-campus-card"
+      style={{ x, y, scale, rotateY, rotateZ, opacity, zIndex }}
+    >
+      <img src={campus.imagePath} alt={`${campus.name} campus`} />
+      <figcaption>
+        <span>{String(index + 1).padStart(2, "0")} / {campus.country}</span>
+        <strong>{campus.name}</strong>
+        <small>{campus.city}</small>
+      </figcaption>
+    </motion.figure>
   );
 }
 

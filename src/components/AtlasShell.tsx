@@ -74,10 +74,16 @@ const CinematicOpening = dynamic(
 
 const cinematicCampusSeed = [
   { name: "Seoul National University", city: "Seoul", country: "South Korea" },
+  { name: "Yonsei University", city: "Seoul", country: "South Korea" },
   { name: "University of Tokyo", city: "Tokyo", country: "Japan" },
+  { name: "Waseda University", city: "Tokyo", country: "Japan" },
   { name: "ETH Zurich", city: "Zurich", country: "Switzerland" },
+  { name: "University of Amsterdam", city: "Amsterdam", country: "Netherlands" },
   { name: "University College London", city: "London", country: "United Kingdom" },
+  { name: "University of Oxford", city: "Oxford", country: "United Kingdom" },
   { name: "Stanford University", city: "Stanford", country: "United States" },
+  { name: "Princeton University", city: "Princeton", country: "United States" },
+  { name: "University of Melbourne", city: "Melbourne", country: "Australia" },
   { name: "Universidade de Sao Paulo", city: "Sao Paulo", country: "Brazil" }
 ] as const;
 
@@ -425,16 +431,6 @@ export function AtlasShell({ initialPlan, initialProviderStatus }: AtlasShellPro
             <strong>{plan.partnerUniversity.city}</strong>
             <small>{selectedCountry.name}</small>
           </motion.div>
-          <motion.div
-            className="hero-hud hero-hud-budget"
-            animate={reduceMotion ? undefined : { y: [0, 9, 0] }}
-            transition={reduceMotion ? undefined : { duration: 6.2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <span>Monthly envelope</span>
-            <strong>SGD {plan.profile.monthlyBudgetSgd.toLocaleString()}</strong>
-            <small>{plan.profile.stayLengthMonths} month mission</small>
-          </motion.div>
-          <div className="hero-scanline" />
         </div>
         <div className="hero-copy">
           <p className="hero-kicker">{plan.profile.destinationCity} / semester command</p>
