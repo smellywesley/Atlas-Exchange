@@ -19,3 +19,6 @@ public/renders
 .vercel
 .codex/screenshots/
 .env*
+
+# Local JSON storage for deadlines and university research cache.
+/data

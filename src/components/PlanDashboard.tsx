@@ -13,6 +13,8 @@ import {
 } from "@phosphor-icons/react";
 import type { ExchangePlan } from "@/lib/schema";
 import type { ProviderStatus } from "@/lib/schema";
+import { DeadlineTracker } from "./DeadlineTracker";
+import { UniversityCompare } from "./UniversityCompare";
 
 type PlanDashboardProps = {
   plan: ExchangePlan;
@@ -21,7 +23,20 @@ type PlanDashboardProps = {
   onReportDeliveryStateChange?: (isWorking: boolean) => void;
 };
 
-const tabs = ["Overview", "Visa", "Modules", "Culture", "Accommodation", "Budget", "Packing", "Deadlines", "Local Life", "Daily Plan", "Q&A"] as const;
+const tabs = [
+  "Overview",
+  "Visa",
+  "Modules",
+  "Culture",
+  "Accommodation",
+  "Budget",
+  "Packing",
+  "Deadlines",
+  "Compare",
+  "Local Life",
+  "Daily Plan",
+  "Q&A"
+] as const;
 
 export function PlanDashboard({
   plan,
@@ -91,7 +106,12 @@ export function PlanDashboard({
         {activeTab === "Accommodation" && <Accommodation plan={plan} />}
         {activeTab === "Budget" && <Budget plan={plan} />}
         {activeTab === "Packing" && <Packing plan={plan} />}
-        {activeTab === "Deadlines" && <Deadlines plan={plan} />}
+        {activeTab === "Deadlines" && <DeadlineTracker suggested={plan.deadlines} />}
+        {activeTab === "Compare" && (
+          <UniversityCompare
+            defaultNames={[plan.partnerUniversity.name, "King's College London", "Imperial College London"]}
+          />
+        )}
         {activeTab === "Local Life" && <LocalLife plan={plan} />}
         {activeTab === "Daily Plan" && <DailyPlan plan={plan} />}
         {activeTab === "Q&A" && <Qna plan={plan} />}
@@ -285,22 +305,6 @@ function Packing({ plan }: { plan: ExchangePlan }) {
             </div>
           ))}
         </article>
-      ))}
-    </div>
-  );
-}
-
-function Deadlines({ plan }: { plan: ExchangePlan }) {
-  return (
-    <div className="deadline-list">
-      {plan.deadlines.map((deadline) => (
-        <div key={deadline.title} className={`deadline-row ${deadline.urgency}`}>
-          <CalendarCheck size={22} />
-          <div>
-            <strong>{deadline.title}</strong>
-            <span>{deadline.category} / {deadline.dueDate ?? "date pending"}</span>
-          </div>
-        </div>
       ))}
     </div>
   );
