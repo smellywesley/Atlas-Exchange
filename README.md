@@ -84,6 +84,20 @@ See [docs/FEATURE_4_6_INTEGRATION_PLAN.md](docs/FEATURE_4_6_INTEGRATION_PLAN.md)
 - Motion for scroll and section transitions
 - Remotion for demo video rendering
 
+## How We Used Codex and GPT-5.6
+
+Codex and GPT-5.6 were used as engineering collaborators throughout the Atlas Exchange build. They helped us turn the initial exchange-planning concept into a working Next.js product, inspect and restructure the destination data model, implement the interactive visual experience, wire and validate API routes, and strengthen the project through iterative code review and testing.
+
+More specifically, they supported:
+
+- Designing the destination-aware `ExchangePlan` flow so a selected university, city, country, and partnership route stay synchronized across the UI, planner, maps, and PDF export.
+- Building and refining the Three.js and Motion-powered world-to-campus opening, partner-campus HUD cards, and scroll-driven 3D campus orbit.
+- Implementing and testing validation, rate limiting, caching, strict-origin protections, safe Q&A fallbacks, and source-aware planning behaviour.
+- Diagnosing real prototype failures such as destination fallbacks that incorrectly showed London content after a student selected another university.
+- Improving developer experience through TypeScript checks, linting, regression tests, production-build verification, documentation, and Vercel deployment checks.
+
+Codex and GPT-5.6 accelerated implementation and quality assurance, while the team remained responsible for product decisions, the student-exchange context, the visual direction, and the final review of every user-facing claim.
+
 ## Getting Started
 
 Install dependencies:
