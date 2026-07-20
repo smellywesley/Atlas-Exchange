@@ -1,14 +1,20 @@
 # Atlas Exchange
 
-Atlas Exchange is a student exchange planning web app built for a hackathon. It helps NUS students turn scattered exchange preparation work into one synchronized departure plan: partner selection, academic candidates, official visa guidance, accommodation, budget, daily logistics, packing, deadlines, cultural preparation, local life, and visible sources.
+**Your exchange semester, planned before it begins.**
+
+Atlas Exchange is a student exchange planning web app built around a problem that feels very familiar: choosing an exchange university is exciting, but preparing for it usually means juggling far too many tabs. Students have to compare campuses, maps, accommodation, budgets, deadlines, visas, packing lists, and module information at the same time.
+
+This project brings those pieces together. It starts with the excitement of exploring a future campus, then turns that choice into a practical plan for how a student might actually live there.
 
 **Live demo:** [atlas-exchange.vercel.app](https://atlas-exchange.vercel.app)
 
-The current product supports every partner route in the included dataset without silently falling back to London. London remains the most detailed seeded demo, while all 92 displayed partner universities now have a local campus image in the globe HUD and university cards.
+The current build supports every partner route in the included dataset without quietly falling back to London when a student chooses somewhere else. London is the most source-complete demo path, while all 92 displayed partner universities have local campus imagery in the globe HUD and university cards.
 
-## Why This Exists
+## Why I Built It
 
-Exchange planning is stressful because students need to connect decisions across many disconnected areas:
+An exchange placement is not just a university name. It is a new city, a new routine, and often a student's first time planning a life abroad for several months. The research is scattered, and that can make an exciting decision feel overwhelming.
+
+Students naturally ask:
 
 - Which partner university should I choose?
 - Where can I stay?
@@ -17,49 +23,51 @@ Exchange planning is stressful because students need to connect decisions across
 - What deadlines matter?
 - What should I know about daily life in the destination?
 
-Atlas Exchange turns those pieces into one source-backed planning dashboard.
+Atlas Exchange is my attempt to make that first step calmer. It gives students one place to explore the destination, understand the practical trade-offs, and leave with a clear next action instead of another open tab.
 
-## Hackathon Thesis
+## What I Wanted to Prove
 
-The strongest version is not a generic chatbot. It is a cinematic planning interface where students choose a destination, fill practical constraints, and receive a ranked, explainable plan.
+I did not want to make a generic chatbot that gives confident-sounding travel advice. I wanted to build an experience that feels like a student is stepping into their possible exchange life, then gives them useful, source-aware planning help once they choose a university.
 
-For the hackathon demo, London is still the most source-complete path. Global routes are destination-synchronized and deliberately omit unverified prices, commute times, scores, and deadlines instead of inventing them.
+For the hackathon demo, London is the most source-complete path. Other routes remain synchronized to their selected destination and deliberately avoid unverified prices, commute times, scores, and deadlines. If the app cannot verify something, it should point the student to the right source rather than make it up.
 
-## Current Features
+## What You Can Try
 
-- Scroll-directed Three.js opening that moves from NASA Blue Marble geography into six real partner-campus frames and the Atlas Exchange title reveal.
-- Premium Next.js web app with cinematic destination discovery.
+The demo is designed to be explored, not merely read about. Start by scrolling through the cinematic opening, choose a region or university, then use the planner to see how the selected destination changes the plan.
+
+- Scroll-directed Three.js opening that moves from NASA Blue Marble geography into real partner-campus frames, a 3D campus orbit, and the Atlas Exchange title reveal.
+- Next.js web app with cinematic destination discovery.
 - Direct Three.js interactive exchange globe with drag rotation, wheel zoom, and clickable country markers.
 - Country-specific templates for city campuses, mountain routes, coastal routes, heritage routes, US campus corridors, and Pacific routes.
 - Partnership data surfaces for UK, South Korea, Japan, China, Hong Kong, Taiwan, Australia, New Zealand, Switzerland, Netherlands, France, Germany, USA East/West, Canada, Mexico, and Brazil.
 - Searchable partner-university cards across every included country and partnership route.
 - Ninety-two local 1600x1000 campus images wired into the globe HUD, selected-campus hero, and university cards.
 - Student intake for dates, budget, stay length, housing, dietary needs, planned activities, and travel style.
-- Candidate-only NUSMods module lookup with one bounded transient retry, bounded caching, single-flight request coalescing, process-wide concurrency control, and an outbound-call budget.
+- NUSMods lookup that returns planning candidates and is protected with retries, caching, request coalescing, and an outbound-call budget.
 - Destination-specific official visa sources that never claim to issue a visa decision.
 - Reviewed cultural preparation for supported cities, with an explicit `needs-review` state elsewhere.
-- Evidence-only deterministic Q&A with bounded caching and no PII input.
+- Source-aware Q&A that answers from the current plan, uses caching, and rejects PII input.
 - Ranked accommodation cards with official and platform links.
 - Monthly budget breakdown in SGD.
 - Smart packing checklist.
 - Deadline plan for housing, documents, packing, and travel.
 - Local life guidance for groceries, food areas, transport, weekend ideas, and communities.
-- No-key logistics agent layer that generates arrival tasks, week-one tasks, ongoing routines, parent reassurance, and structured Q&A for every selected partner university.
+- Logistics helper that creates arrival tasks, week-one tasks, ongoing routines, parent reassurance, and structured Q&A for each selected partner university.
 - Source visibility layer using `SourceRef`.
-- Provider status endpoint that reports only capabilities the current build actually invokes.
+- Clear provider-status handling that only advertises capabilities the current build actually uses.
 - Evidence-linked PDF report generation for offline review and departure preparation.
 - Local campus-image override folder with a 92-school filename checklist.
 - Remotion demo video starter.
 
-## Owned Feature Layer
+## The Student-Life Layer
 
-The current build emphasizes features 4-6 from the original concept:
+This submission focuses especially on the parts of exchange that happen after a university is chosen:
 
 4. Daily Logistics
 5. Smart Packing List
 6. Accommodations
 
-These form the student life readiness layer: once a student knows where they are going, Atlas Exchange helps them understand how to actually live there.
+Together, these form the student-life readiness layer. Once a student knows where they are going, Atlas Exchange helps them understand how they might actually live there.
 
 This layer integrates with the other modules:
 
@@ -84,19 +92,19 @@ See [docs/FEATURE_4_6_INTEGRATION_PLAN.md](docs/FEATURE_4_6_INTEGRATION_PLAN.md)
 - Motion for scroll and section transitions
 - Remotion for demo video rendering
 
-## How We Used Codex and GPT-5.6
+## How I Used Codex and GPT-5.6
 
-Codex and GPT-5.6 were used as engineering collaborators throughout the Atlas Exchange build. They helped us turn the initial exchange-planning concept into a working Next.js product, inspect and restructure the destination data model, implement the interactive visual experience, wire and validate API routes, and strengthen the project through iterative code review and testing.
+I used Codex and GPT-5.6 as engineering collaborators throughout the Atlas Exchange build. They helped me turn an early idea about exchange planning into a working Next.js product, catch problems that would have made the demo misleading, and keep the project moving from concept to deployable app.
 
-More specifically, they supported:
+In practice, they helped with:
 
-- Designing the destination-aware `ExchangePlan` flow so a selected university, city, country, and partnership route stay synchronized across the UI, planner, maps, and PDF export.
+- Designing the destination-aware `ExchangePlan` flow so a selected university, city, country, and partnership route stay connected across the UI, planner, maps, and PDF export.
 - Building and refining the Three.js and Motion-powered world-to-campus opening, partner-campus HUD cards, and scroll-driven 3D campus orbit.
-- Implementing and testing validation, rate limiting, caching, strict-origin protections, safe Q&A fallbacks, and source-aware planning behaviour.
-- Diagnosing real prototype failures such as destination fallbacks that incorrectly showed London content after a student selected another university.
-- Improving developer experience through TypeScript checks, linting, regression tests, production-build verification, documentation, and Vercel deployment checks.
+- Testing validation, rate limiting, caching, safe Q&A fallbacks, source-aware planning behaviour, and the public API surface.
+- Catching prototype mistakes, including destination fallbacks that incorrectly showed London content after a student selected another university.
+- Tightening the developer workflow with TypeScript checks, linting, regression tests, production-build verification, documentation, and Vercel deployment checks.
 
-Codex and GPT-5.6 accelerated implementation and quality assurance, while the team remained responsible for product decisions, the student-exchange context, the visual direction, and the final review of every user-facing claim.
+Codex and GPT-5.6 made the build faster and more rigorous, but they do not replace product judgment. I remained responsible for the student-exchange context, visual direction, product decisions, and the final review of every claim shown to students.
 
 ## Getting Started
 
